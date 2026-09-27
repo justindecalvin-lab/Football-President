@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Club, Player, AgencyState } from '../types';
 import { formatMoney, calculateDynamicValuation } from '../utils/gameEngine';
-import { getClubFfpDetails, executeClubSanctions, restructureClientContract } from '../utils/ffpEngine';
+import { getClubFfpDetails, getBatchClubFfpMap, executeClubSanctions, restructureClientContract } from '../utils/ffpEngine';
 import { CONTINENTAL_LEAGUES } from '../utils/proceduralGenerator';
 import { soundEngine } from '../utils/soundEffects';
 import confetti from 'canvas-confetti';
@@ -102,31 +102,51 @@ export const LeagueHierarchyInspector: React.FC<LeagueHierarchyInspectorProps> =
   const ownedClub = clubs.find(c => c.id === agency.presidency?.clubId || c.name === agency.presidency?.clubName);
 
   // Get active leagues in selected continent
-  const continentLeagues = CONTINENTAL_LEAGUES.filter(l => l.continent === selectedContinent);
-  const activeLeagueDef = CONTINENTAL_LEAGUES.find(l => l.id === selectedLeagueId) || continentLeagues[0] || CONTINENTAL_LEAGUES[0];
+  const continentLeagues = useMemo(() => {
+    return CONTINENTAL_LEAGUES.filter(l => l.continent === selectedContinent);
+  }, [selectedContinent]);
+
+  const activeLeagueDef = useMemo(() => {
+    return CONTINENTAL_LEAGUES.find(l => l.id === selectedLeagueId) || continentLeagues[0] || CONTINENTAL_LEAGUES[0];
+  }, [selectedLeagueId, continentLeagues]);
 
   // Get clubs in selected league
-  const leagueClubs = clubs
-    .filter(c => c.league === activeLeagueDef.name)
-    .sort((a, b) => b.points - a.points || b.reputation - a.reputation);
+  const leagueClubs = useMemo(() => {
+    return clubs
+      .filter(c => c.league === activeLeagueDef.name)
+      .sort((a, b) => b.points - a.points || b.reputation - a.reputation);
+  }, [clubs, activeLeagueDef]);
 
   // Selected Club
-  const activeClub = selectedClubId ? clubs.find(c => c.id === selectedClubId) || leagueClubs[0] : leagueClubs[0];
+  const activeClub = useMemo(() => {
+    return selectedClubId ? clubs.find(c => c.id === selectedClubId) || leagueClubs[0] : leagueClubs[0];
+  }, [clubs, selectedClubId, leagueClubs]);
 
   // Players in selected club
-  const clubPlayers = activeClub 
-    ? players.filter(p => p.clubId === activeClub.id)
-    : [];
+  const clubPlayers = useMemo(() => {
+    return activeClub ? players.filter(p => p.clubId === activeClub.id) : [];
+  }, [activeClub, players]);
 
-  const myClientsInClub = clubPlayers.filter(p => p.isMyClient);
+  const myClientsInClub = useMemo(() => {
+    return clubPlayers.filter(p => p.isMyClient);
+  }, [clubPlayers]);
 
-  const filteredPlayers = clubPlayers.filter(p => 
-    p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    p.position.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredPlayers = useMemo(() => {
+    if (!searchQuery.trim()) return clubPlayers;
+    const q = searchQuery.toLowerCase();
+    return clubPlayers.filter(p => 
+      p.name.toLowerCase().includes(q) || 
+      p.position.toLowerCase().includes(q)
+    );
+  }, [clubPlayers, searchQuery]);
+
+  // High-performance batch evaluation for active league clubs (20 clubs instead of scanning 10,000 players 20 times)
+  const leagueClubsFfpMap = useMemo(() => {
+    return getBatchClubFfpMap(leagueClubs, players, agency.currentWeek);
+  }, [leagueClubs, players, agency.currentWeek]);
 
   // Active Club FFP Details
-  const activeClubFfp = activeClub ? getClubFfpDetails(activeClub, players, agency.currentWeek) : null;
+  const activeClubFfp = activeClub ? leagueClubsFfpMap.get(activeClub.id) || null : null;
 
   // Handle Governance Action on Club
   const handleExecuteSanction = (sanctionType: 'fine' | 'points_deduction' | 'transfer_ban' | 'forensic_audit' | 'wage_slash_order') => {
@@ -282,7 +302,7 @@ export const LeagueHierarchyInspector: React.FC<LeagueHierarchyInspectorProps> =
           <div className="space-y-1.5 max-h-[580px] overflow-y-auto pr-1">
             {leagueClubs.map((club, idx) => {
               const isSelected = activeClub?.id === club.id;
-              const ffp = getClubFfpDetails(club, players, agency.currentWeek);
+              const ffp = leagueClubsFfpMap.get(club.id) || getClubFfpDetails(club, [], agency.currentWeek, true);
 
               let ffpBadge = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40';
               let ffpLabel = 'FFP OK';

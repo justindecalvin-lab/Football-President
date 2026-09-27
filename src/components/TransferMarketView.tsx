@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Club, Player, AgencyState, TargetedClubFeedback } from '../types';
 import { formatMoney, recordFinancialTransaction, generateTargetedClubFeedback } from '../utils/gameEngine';
 import { safeFetchAi, generateClientNegotiationFeedback } from '../utils/aiFallback';
@@ -117,45 +117,55 @@ export const TransferMarketView: React.FC<TransferMarketViewProps> = ({
     }
   }, [selectedPlayerForTransfer]);
 
-  // Filter players based on embedded sub-tabs
-  const filteredPlayers = players.filter(p => {
-    // 1. Search Query
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      p.clubName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.nationality.toLowerCase().includes(searchQuery.toLowerCase());
-    if (!matchesSearch) return false;
+  // Filter players based on embedded sub-tabs with memoization to prevent 10,000-item render thrashing
+  const filteredPlayers = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
 
-    // 2. Position
-    if (selectedPosition !== 'ALL' && p.position !== selectedPosition) return false;
+    return players.filter(p => {
+      // 1. Search Query
+      if (q) {
+        const matchesSearch = p.name.toLowerCase().includes(q) || 
+          p.clubName.toLowerCase().includes(q) ||
+          p.nationality.toLowerCase().includes(q);
+        if (!matchesSearch) return false;
+      }
 
-    // 3. Unrest Only
-    if (showUnrestOnly && (!p.unrest || p.unrest.status === 'content')) return false;
+      // 2. Position
+      if (selectedPosition !== 'ALL' && p.position !== selectedPosition) return false;
 
-    // 4. Market Sub Tab Filter
-    if (marketTab === 'transfer_listed') {
-      const isListed = p.isTransferListed || p.transferListedByClub || (p.unrest && p.unrest.status === 'transfer_requested');
-      return isListed;
-    }
-    if (marketTab === 'loan_listed') {
-      const isLoan = p.isLoanListed || p.loanListedByClub;
-      return isLoan;
-    }
-    if (marketTab === 'free_agents') {
-      const isFree = p.clubName === 'Free Agent' || !p.clubId || p.clubId === 'c_free';
-      return isFree;
-    }
-    if (marketTab === 'expiring_contracts') {
-      const isExpiring = (p.contractYears !== undefined && p.contractYears <= 1) || p.contractExpiringSoon;
-      return isExpiring;
-    }
+      // 3. Unrest Only
+      if (showUnrestOnly && (!p.unrest || p.unrest.status === 'content')) return false;
 
-    return true; // 'all'
-  });
+      // 4. Market Sub Tab Filter
+      if (marketTab === 'transfer_listed') {
+        const isListed = p.isTransferListed || p.transferListedByClub || (p.unrest && p.unrest.status === 'transfer_requested');
+        return isListed;
+      }
+      if (marketTab === 'loan_listed') {
+        const isLoan = p.isLoanListed || p.loanListedByClub;
+        return isLoan;
+      }
+      if (marketTab === 'free_agents') {
+        const isFree = p.clubName === 'Free Agent' || !p.clubId || p.clubId === 'c_free';
+        return isFree;
+      }
+      if (marketTab === 'expiring_contracts') {
+        const isExpiring = (p.contractYears !== undefined && p.contractYears <= 1) || p.contractExpiringSoon;
+        return isExpiring;
+      }
+
+      return true; // 'all'
+    });
+  }, [players, searchQuery, selectedPosition, showUnrestOnly, marketTab]);
 
   const totalPages = Math.max(1, Math.ceil(filteredPlayers.length / ITEMS_PER_PAGE));
-  const displayedPlayers = filteredPlayers.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  const displayedPlayers = useMemo(() => {
+    return filteredPlayers.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  }, [filteredPlayers, currentPage]);
 
-  const userPresidencyClub = clubs.find(c => c.id === agency.presidency?.clubId);
+  const userPresidencyClub = useMemo(() => {
+    return clubs.find(c => c.id === agency.presidency?.clubId);
+  }, [clubs, agency.presidency?.clubId]);
 
   // Close negotiation modal cleanly and reset state
   const handleCloseNegotiator = () => {

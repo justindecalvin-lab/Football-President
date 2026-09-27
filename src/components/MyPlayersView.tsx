@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Player, Club, AgencyState } from '../types';
 import { formatMoney, calculateSeveranceBuyoutCost, recordFinancialTransaction, generatePlayerBio } from '../utils/gameEngine';
 import { safeFetchAi, generateClientPlayerBackstory, generateClientScoutReport } from '../utils/aiFallback';
@@ -224,19 +224,61 @@ export const MyPlayersView: React.FC<MyPlayersViewProps> = ({
     setAppealModalPlayer(null);
   };
 
+  const [page, setPage] = useState(1);
+  const [faSearchQuery, setFaSearchQuery] = useState('');
+  const [faPositionFilter, setFaPositionFilter] = useState('ALL');
+  const ITEMS_PER_PAGE = 24;
+
   const effectiveRole = getEffectiveRole(agency);
   const isFA = effectiveRole === 'fa_president';
   const isOwner = effectiveRole === 'club_owner';
   const isAgent = effectiveRole === 'agent';
 
-  const myClients = players.filter(p => p.isMyClient);
-  const ownedClub = clubs.find(c => c.id === agency?.presidency?.clubId || c.name === agency?.presidency?.clubName) || clubs[0];
-  
-  const displayedPlayers = isFA 
-    ? players 
-    : isOwner 
-      ? players.filter(p => p.clubId === ownedClub?.id || p.clubName === ownedClub?.name)
-      : myClients;
+  const myClients = useMemo(() => players.filter(p => p.isMyClient), [players]);
+  const ownedClub = useMemo(() => {
+    return clubs.find(c => c.id === agency?.presidency?.clubId || c.name === agency?.presidency?.clubName) || clubs[0];
+  }, [clubs, agency?.presidency]);
+
+  const ownerSquad = useMemo(() => {
+    if (!isOwner || !ownedClub) return [];
+    return players.filter(p => p.clubId === ownedClub.id || p.clubName === ownedClub.name);
+  }, [isOwner, ownedClub, players]);
+
+  // Base list of players based on current role
+  const allRolePlayers = useMemo(() => {
+    if (isFA) return players;
+    if (isOwner) return ownerSquad;
+    return myClients;
+  }, [isFA, players, isOwner, ownerSquad, myClients]);
+
+  // Filtered players (with fast search & position filter for FA / large rosters)
+  const displayedPlayers = useMemo(() => {
+    if (!faSearchQuery.trim() && faPositionFilter === 'ALL') {
+      return allRolePlayers;
+    }
+    const q = faSearchQuery.toLowerCase().trim();
+    return allRolePlayers.filter(p => {
+      if (faPositionFilter !== 'ALL' && p.position !== faPositionFilter) return false;
+      if (q) {
+        const matches = p.name.toLowerCase().includes(q) || 
+          p.clubName.toLowerCase().includes(q) || 
+          p.nationality.toLowerCase().includes(q);
+        if (!matches) return false;
+      }
+      return true;
+    });
+  }, [allRolePlayers, faSearchQuery, faPositionFilter]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [faSearchQuery, faPositionFilter, effectiveRole]);
+
+  const totalPages = Math.max(1, Math.ceil(displayedPlayers.length / ITEMS_PER_PAGE));
+  const paginatedPlayers = useMemo(() => {
+    if (displayedPlayers.length <= ITEMS_PER_PAGE) return displayedPlayers;
+    return displayedPlayers.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+  }, [displayedPlayers, page]);
 
   const homegrownCount = isOwner ? displayedPlayers.filter(p => (p.age <= 21 || p.nationality === 'England' || p.nationality === 'Spain' || p.nationality === 'Germany' || p.nationality === 'Italy')).length : 0;
 
@@ -900,10 +942,69 @@ export const MyPlayersView: React.FC<MyPlayersViewProps> = ({
         </div>
       )}
 
+      {/* Search & Filter Bar (Active for FA or large rosters) */}
+      {(isFA || allRolePlayers.length > 24) && (
+        <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-md">
+          <div className="flex items-center gap-3 flex-1 min-w-[240px]">
+            <input
+              type="text"
+              placeholder={`Search ${allRolePlayers.length} athletes by name, club, or nationality...`}
+              value={faSearchQuery}
+              onChange={(e) => setFaSearchQuery(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-400 font-bold">Position:</span>
+            <select
+              value={faPositionFilter}
+              onChange={(e) => setFaPositionFilter(e.target.value)}
+              className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
+            >
+              <option value="ALL">All Positions</option>
+              <option value="GK">Goalkeepers (GK)</option>
+              <option value="CB">Center Backs (CB)</option>
+              <option value="LB">Left Backs (LB)</option>
+              <option value="RB">Right Backs (RB)</option>
+              <option value="CDM">Defensive Midfielders (CDM)</option>
+              <option value="CM">Central Midfielders (CM)</option>
+              <option value="CAM">Attacking Midfielders (CAM)</option>
+              <option value="LW">Left Wingers (LW)</option>
+              <option value="RW">Right Wingers (RW)</option>
+              <option value="ST">Strikers (ST)</option>
+            </select>
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold"
+              >
+                Prev
+              </button>
+              <span className="font-bold text-white">
+                Page {page} / {totalPages}
+              </span>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold"
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Grid or Pitch View */}
       {viewMode === 'grid' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {displayedPlayers.map((player) => {
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {paginatedPlayers.map((player) => {
             const isSelected = selectedPlayerIds.includes(player.id);
             return (
             <div

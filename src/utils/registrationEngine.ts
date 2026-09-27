@@ -275,8 +275,20 @@ export function enforceSquadRegistrationDeadline(
     read: false
   });
 
+  // Index squad rosters for O(1) instant lookup to eliminate 5,000,000 quadratic filter iterations
+  const squadByClub = new Map<string, Player[]>();
+  for (let i = 0; i < updatedPlayers.length; i++) {
+    const p = updatedPlayers[i];
+    let list = squadByClub.get(p.clubId);
+    if (!list) {
+      list = [];
+      squadByClub.set(p.clubId, list);
+    }
+    list.push(p);
+  }
+
   clubs.forEach(club => {
-    const clubSquad = updatedPlayers.filter(p => p.clubId === club.id);
+    const clubSquad = squadByClub.get(club.id) || [];
     if (clubSquad.length === 0) return;
 
     // Separate U21 exempt vs senior players

@@ -78,8 +78,12 @@ export interface FfpActionOption {
  * 3. Income & Revenue Streams (Commercial power, broadcast share & matchday yield)
  * 4. Ability to Balance the Books (Accounting competence, debt service & amortization)
  */
-export function calculateClubFfpMetrics(club: Club, allPlayers: Player[] = []): ClubFfpMetrics {
-  const clubPlayers = allPlayers.filter(p => p.clubId === club.id);
+export function calculateClubFfpMetrics(
+  club: Club, 
+  allPlayersOrSquad: Player[] = [],
+  isSquadAlreadyFiltered: boolean = false
+): ClubFfpMetrics {
+  const clubPlayers = isSquadAlreadyFiltered ? allPlayersOrSquad : allPlayersOrSquad.filter(p => p.clubId === club.id);
   const isTier2 = club.tier === 2;
 
   // =========================================================================
@@ -609,7 +613,8 @@ export function bulkRestructureClientsAtRisk(
 export function getClubFfpDetails(
   club: Club,
   players: Player[] = [],
-  _currentWeek: number = 1
+  _currentWeek: number = 1,
+  isSquadPreFiltered: boolean = false
 ): ClubFfpMetrics & {
   netSpend: number;
   annualPayroll: number;
@@ -617,7 +622,7 @@ export function getClubFfpDetails(
   estimatedDebt: number;
   spendingRatio: number;
 } {
-  const metrics = calculateClubFfpMetrics(club, players);
+  const metrics = calculateClubFfpMetrics(club, players, isSquadPreFiltered);
   return {
     ...metrics,
     netSpend: metrics.spentThisSeason,
@@ -626,6 +631,43 @@ export function getClubFfpDetails(
     estimatedDebt: metrics.overspendAmount,
     spendingRatio: metrics.debtRatio
   };
+}
+
+/**
+ * High-speed batch FFP calculation for 500 clubs.
+ * Pre-indexes 10,000 players by clubId once in O(N),
+ * dropping evaluation from 5,000,000 quadratic loops to ~10,500 operations (500x speedup).
+ */
+export function getBatchClubFfpMap(
+  clubs: Club[],
+  players: Player[],
+  currentWeek: number = 1
+): Map<string, ClubFfpMetrics & {
+  netSpend: number;
+  annualPayroll: number;
+  allowableLossCap: number;
+  estimatedDebt: number;
+  spendingRatio: number;
+}> {
+  const playersByClub = new Map<string, Player[]>();
+  for (let i = 0; i < players.length; i++) {
+    const p = players[i];
+    let list = playersByClub.get(p.clubId);
+    if (!list) {
+      list = [];
+      playersByClub.set(p.clubId, list);
+    }
+    list.push(p);
+  }
+
+  const result = new Map<string, any>();
+  for (let i = 0; i < clubs.length; i++) {
+    const club = clubs[i];
+    const squad = playersByClub.get(club.id) || [];
+    const details = getClubFfpDetails(club, squad, currentWeek, true);
+    result.set(club.id, details);
+  }
+  return result;
 }
 
 /**

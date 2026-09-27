@@ -540,9 +540,12 @@ export function generateRandomDilemma(players: Player[]): PlayerDilemma | null {
 
 // Weekly financial simulation with multi-factor audit & progressive corporate tax
 export function calculateWeeklyFinances(agency: AgencyState, players: Player[]) {
+  // Filter clients once to avoid multiple full-array scans of 10,000 players
+  const myClients = players.filter(p => p.isMyClient);
+
   // Income from client commissions (e.g. 10% of client wages) - strictly filter employed clients only
-  const clientCommissions = players
-    .filter(p => p.isMyClient && p.clubId && p.clubId !== 'free_agent' && p.clubId !== 'c_free' && p.clubName !== 'Free Agent')
+  const clientCommissions = myClients
+    .filter(p => p.clubId && p.clubId !== 'free_agent' && p.clubId !== 'c_free' && p.clubName !== 'Free Agent')
     .reduce((sum, p) => sum + (p.wage * ((p.agentCommission || 10) / 100)), 0);
 
   // Income from owned real estate (passive rental yield)
@@ -557,15 +560,14 @@ export function calculateWeeklyFinances(agency: AgencyState, players: Player[]) 
 
   // Income from client commercial endorsements (scaled by FIFA License Tier)
   const licenseCut = agency.fifaLicense?.tier === 'fifa_global' ? 0.22 : agency.fifaLicense?.tier === 'uefa' ? 0.18 : 0.15;
-  const commercialIncome = players
-    .filter(p => p.isMyClient)
+  const commercialIncome = myClients
     .reduce((sum, p) => sum + Math.round((p.personalLife?.endorsementEarnings || 0) * licenseCut), 0);
 
   // Expenses: Office maintenance & HQ lease
   const officeCosts = (agency.officeLevel || 1) * 4500;
 
   // Expenses: Client Servicing & Legal Retainer per active client (Match travel, concierge, insurance)
-  const clientServicingCosts = players.filter(p => p.isMyClient).length * 1200;
+  const clientServicingCosts = myClients.length * 1200;
 
   // Expenses: FIFA Licensing Compliance & Association Dues
   const fifaComplianceCosts = agency.fifaLicense?.tier === 'fifa_global' ? 3500 : agency.fifaLicense?.tier === 'uefa' ? 2000 : 800;
@@ -739,88 +741,102 @@ export function simulateWeekFixtures(
   // Group clubs by league
   const leagues = Array.from(new Set(clubs.map(c => c.league)));
 
-    // Track fielded players this matchweek to prevent mid-week recall/transfer double appearances
-    const fieldedPlayerIdsThisWeek = new Set<string>();
+  // Track fielded players this matchweek to prevent mid-week recall/transfer double appearances
+  const fieldedPlayerIdsThisWeek = new Set<string>();
 
-    leagues.forEach(league => {
-      const leagueClubs = updatedClubs.filter(c => c.league === league);
-      if (leagueClubs.length < 2) return;
+  // High-performance index maps: eliminate 35,000,000 quadratic iterations per matchweek
+  const playersByClub = new Map<string, Player[]>();
+  const playerById = new Map<string, Player>();
+  for (let i = 0; i < updatedPlayers.length; i++) {
+    const p = updatedPlayers[i];
+    playerById.set(p.id, p);
+    let clubRoster = playersByClub.get(p.clubId);
+    if (!clubRoster) {
+      clubRoster = [];
+      playersByClub.set(p.clubId, clubRoster);
+    }
+    clubRoster.push(p);
+  }
 
-      // Pair clubs randomly for fixture of the week
-      const shuffled = [...leagueClubs].sort(() => 0.5 - Math.random());
-      for (let i = 0; i < shuffled.length - 1; i += 2) {
-        const home = shuffled[i];
-        const away = shuffled[i + 1];
+  leagues.forEach(league => {
+    const leagueClubs = updatedClubs.filter(c => c.league === league);
+    if (leagueClubs.length < 2) return;
 
-        // Simulate score based on reputation
-        const homeStrength = home.reputation + Math.floor(Math.random() * 15);
-        const awayStrength = away.reputation + Math.floor(Math.random() * 12);
+    // Pair clubs randomly for fixture of the week
+    const shuffled = [...leagueClubs].sort(() => 0.5 - Math.random());
+    for (let i = 0; i < shuffled.length - 1; i += 2) {
+      const home = shuffled[i];
+      const away = shuffled[i + 1];
 
-        let homeGoals = Math.max(0, Math.floor((homeStrength - awayStrength + 20) / 15 + Math.random() * 2));
-        let awayGoals = Math.max(0, Math.floor((awayStrength - homeStrength + 15) / 15 + Math.random() * 2));
+      // Simulate score based on reputation
+      const homeStrength = home.reputation + Math.floor(Math.random() * 15);
+      const awayStrength = away.reputation + Math.floor(Math.random() * 12);
 
-        home.played += 1;
-        away.played += 1;
-        home.goalsFor += homeGoals;
-        home.goalsAgainst += awayGoals;
-        away.goalsFor += awayGoals;
-        away.goalsAgainst += homeGoals;
+      let homeGoals = Math.max(0, Math.floor((homeStrength - awayStrength + 20) / 15 + Math.random() * 2));
+      let awayGoals = Math.max(0, Math.floor((awayStrength - homeStrength + 15) / 15 + Math.random() * 2));
 
-        if (homeGoals > awayGoals) {
-          home.won += 1;
-          home.points += 3;
-          away.lost += 1;
-        } else if (homeGoals < awayGoals) {
-          away.won += 1;
-          away.points += 3;
-          home.lost += 1;
-        } else {
-          home.drawn += 1;
-          home.points += 1;
-          away.drawn += 1;
-          away.points += 1;
-        }
+      home.played += 1;
+      away.played += 1;
+      home.goalsFor += homeGoals;
+      home.goalsAgainst += awayGoals;
+      away.goalsFor += awayGoals;
+      away.goalsAgainst += homeGoals;
 
-        // Detect Derby Match Rivalry (Shared city or classic rivals)
-        const isDerby = (
-          (home.name.includes('Manchester') && away.name.includes('Manchester')) ||
-          (home.name.includes('Madrid') && away.name.includes('Madrid')) ||
-          (home.name.includes('Milan') && away.name.includes('Milan')) ||
-          (home.name.includes('Arsenal') && away.name.includes('Tottenham')) ||
-          (home.name.includes('Liverpool') && away.name.includes('Everton')) ||
-          (home.name.includes('Bayern') && away.name.includes('Dortmund')) ||
-          (home.name.includes('Barcelona') && away.name.includes('Madrid'))
-        );
+      if (homeGoals > awayGoals) {
+        home.won += 1;
+        home.points += 3;
+        away.lost += 1;
+      } else if (homeGoals < awayGoals) {
+        away.won += 1;
+        away.points += 3;
+        home.lost += 1;
+      } else {
+        home.drawn += 1;
+        home.points += 1;
+        away.drawn += 1;
+        away.points += 1;
+      }
 
-        // Weather condition based on season / week
-        const weatherPool: ('Clear' | 'Rain' | 'Snow' | 'Heatwave')[] = (week >= 18 && week <= 26)
-          ? ['Snow', 'Rain', 'Clear']
-          : (week >= 1 && week <= 6)
-          ? ['Heatwave', 'Clear', 'Clear']
-          : ['Clear', 'Rain', 'Clear'];
-        const matchWeather = weatherPool[Math.floor(Math.random() * weatherPool.length)];
+      // Detect Derby Match Rivalry (Shared city or classic rivals)
+      const isDerby = (
+        (home.name.includes('Manchester') && away.name.includes('Manchester')) ||
+        (home.name.includes('Madrid') && away.name.includes('Madrid')) ||
+        (home.name.includes('Milan') && away.name.includes('Milan')) ||
+        (home.name.includes('Arsenal') && away.name.includes('Tottenham')) ||
+        (home.name.includes('Liverpool') && away.name.includes('Everton')) ||
+        (home.name.includes('Bayern') && away.name.includes('Dortmund')) ||
+        (home.name.includes('Barcelona') && away.name.includes('Madrid'))
+      );
 
-        const refStrictnessPool: ('Lenient' | 'Standard' | 'Strict')[] = ['Lenient', 'Standard', 'Strict'];
-        const matchReferee = refStrictnessPool[Math.floor(Math.random() * refStrictnessPool.length)];
+      // Weather condition based on season / week
+      const weatherPool: ('Clear' | 'Rain' | 'Snow' | 'Heatwave')[] = (week >= 18 && week <= 26)
+        ? ['Snow', 'Rain', 'Clear']
+        : (week >= 1 && week <= 6)
+        ? ['Heatwave', 'Clear', 'Clear']
+        : ['Clear', 'Rain', 'Clear'];
+      const matchWeather = weatherPool[Math.floor(Math.random() * weatherPool.length)];
 
-        // Filter eligible squad members: not suspended, not severely injured, and not already fielded this round
-        const homeSquad = updatedPlayers.filter(p => 
-          p.clubId === home.id && 
-          !p.isSuspended && 
-          !p.injury?.isInjured && 
-          !fieldedPlayerIdsThisWeek.has(p.id)
-        );
-        const awaySquad = updatedPlayers.filter(p => 
-          p.clubId === away.id && 
-          !p.isSuspended && 
-          !p.injury?.isInjured && 
-          !fieldedPlayerIdsThisWeek.has(p.id)
-        );
+      const refStrictnessPool: ('Lenient' | 'Standard' | 'Strict')[] = ['Lenient', 'Standard', 'Strict'];
+      const matchReferee = refStrictnessPool[Math.floor(Math.random() * refStrictnessPool.length)];
 
-        homeSquad.forEach(p => fieldedPlayerIdsThisWeek.add(p.id));
-        awaySquad.forEach(p => fieldedPlayerIdsThisWeek.add(p.id));
+      // Filter eligible squad members from pre-indexed roster in O(1)
+      const homeCandidates = playersByClub.get(home.id) || [];
+      const awayCandidates = playersByClub.get(away.id) || [];
+      const homeSquad = homeCandidates.filter(p => 
+        !p.isSuspended && 
+        !p.injury?.isInjured && 
+        !fieldedPlayerIdsThisWeek.has(p.id)
+      );
+      const awaySquad = awayCandidates.filter(p => 
+        !p.isSuspended && 
+        !p.injury?.isInjured && 
+        !fieldedPlayerIdsThisWeek.has(p.id)
+      );
 
-        const fixtureId = `fix_w${week}_${home.shortName}_vs_${away.shortName}`;
+      homeSquad.forEach(p => fieldedPlayerIdsThisWeek.add(p.id));
+      awaySquad.forEach(p => fieldedPlayerIdsThisWeek.add(p.id));
+
+      const fixtureId = `fix_w${week}_${home.shortName}_vs_${away.shortName}`;
 
       const validatedLog = auditAndValidateMatchLog(
         fixtureId,
@@ -845,9 +861,9 @@ export function simulateWeekFixtures(
       // Weather fatigue modifier
       const weatherFatigueBonus = matchWeather === 'Heatwave' ? 6 : matchWeather === 'Snow' ? 4 : matchWeather === 'Rain' ? 2 : 0;
 
-      // Apply individual audited stats to player records with 0 discrepancy
+      // Apply individual audited stats to player records with O(1) instant hash lookup
       [...validatedLog.homePlayerLogs, ...validatedLog.awayPlayerLogs].forEach(plog => {
-        const targetP = updatedPlayers.find(p => p.id === plog.playerId);
+        const targetP = playerById.get(plog.playerId);
         if (targetP) {
           targetP.stats.appearances += 1;
           targetP.stats.goals += plog.goals;
@@ -1427,10 +1443,26 @@ export function processWeeklyPlayerUnrest(
     }
   ];
 
-  updatedPlayers.forEach((player) => {
-    if (player.clubId === 'free_agent') return;
+  // Index clubs and squads for O(1) lookup to eliminate 5,000,000 loop operations
+  const clubById = new Map<string, Club>();
+  for (let i = 0; i < clubs.length; i++) {
+    clubById.set(clubs[i].id, clubs[i]);
+  }
+  const squadByClub = new Map<string, Player[]>();
+  for (let i = 0; i < updatedPlayers.length; i++) {
+    const p = updatedPlayers[i];
+    let sq = squadByClub.get(p.clubId);
+    if (!sq) {
+      sq = [];
+      squadByClub.set(p.clubId, sq);
+    }
+    sq.push(p);
+  }
 
-    const club = clubs.find(c => c.id === player.clubId);
+  updatedPlayers.forEach((player) => {
+    if (player.clubId === 'free_agent' || player.clubId === 'c_free') return;
+
+    const club = clubById.get(player.clubId);
 
     // Initialize Playing Time Baseline if not present
     if (!player.agreedPlayingTime) {
@@ -1515,8 +1547,10 @@ export function processWeeklyPlayerUnrest(
           player.form = Math.max(25, player.form - 20);
 
           // Side-effects: Locker room toxicity & teammates morale penalty
-          updatedPlayers.filter(p => p.clubId === player.clubId && p.id !== player.id).forEach(teammate => {
-            teammate.morale = Math.max(10, (teammate.morale || 80) - 5);
+          (squadByClub.get(player.clubId) || []).forEach(teammate => {
+            if (teammate.id !== player.id) {
+              teammate.morale = Math.max(10, (teammate.morale || 80) - 5);
+            }
           });
 
           newsItems.push({

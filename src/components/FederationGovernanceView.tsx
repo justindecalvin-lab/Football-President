@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { AgencyState, PresidencyState, ElectionCampaign, Club, Player } from '../types';
 import { formatMoney } from '../utils/gameEngine';
 import { soundEngine } from '../utils/soundEffects';
 import { getFederationScenarios, FederationActionScenario } from '../utils/federationScenariosEngine';
 import { 
-  getClubFfpDetails, 
+  getClubFfpDetails,
+  getBatchClubFfpMap,
   executeClubSanctions, 
   restructureClientContract, 
   bulkRestructureClientsAtRisk 
@@ -289,19 +290,45 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
   const isAuditWarningPeriod = (agency.currentWeek >= 34 && agency.currentWeek <= 38);
   const weeksUntilAudit = Math.max(0, 38 - agency.currentWeek);
 
-  // Find all clubs with FFP risk and represented clients in those clubs
-  const atRiskClubs = clubs.filter(c => {
-    const ffp = getClubFfpDetails(c, players, agency.currentWeek);
-    return !ffp.isWithinFfp || ffp.status === 'At Risk';
-  });
+  // High-performance batch evaluation: maps club FFP metrics once in O(N) rather than 5,000,000 quadratic loops
+  const batchFfpMap = useMemo(() => {
+    return getBatchClubFfpMap(clubs, players, agency.currentWeek);
+  }, [clubs, players, agency.currentWeek]);
 
-  const representedClientsAtRisk = players.filter(p => {
-    if (!p.isMyClient || !p.clubId) return false;
-    const club = clubs.find(c => c.id === p.clubId);
-    if (!club) return false;
-    const ffp = getClubFfpDetails(club, players, agency.currentWeek);
-    return !ffp.isWithinFfp || ffp.status === 'At Risk';
-  });
+  // Index my clients by clubId for O(1) representation check
+  const clientsByClub = useMemo(() => {
+    const map = new Map<string, Player[]>();
+    for (let i = 0; i < players.length; i++) {
+      const p = players[i];
+      if (p.isMyClient && p.clubId) {
+        let list = map.get(p.clubId);
+        if (!list) {
+          list = [];
+          map.set(p.clubId, list);
+        }
+        list.push(p);
+      }
+    }
+    return map;
+  }, [players]);
+
+  // Find all clubs with FFP risk and represented clients in those clubs
+  const atRiskClubs = useMemo(() => {
+    return clubs.filter(c => {
+      const ffp = batchFfpMap.get(c.id);
+      return ffp && (!ffp.isWithinFfp || ffp.status === 'At Risk');
+    });
+  }, [clubs, batchFfpMap]);
+
+  const representedClientsAtRisk = useMemo(() => {
+    const atRiskClubIdSet = new Set(atRiskClubs.map(c => c.id));
+    const result: Player[] = [];
+    atRiskClubIdSet.forEach(cId => {
+      const cls = clientsByClub.get(cId);
+      if (cls) result.push(...cls);
+    });
+    return result;
+  }, [atRiskClubs, clientsByClub]);
 
   // Trigger 'Financial Fair Play Risk' Toast when 4 weeks before seasonal audit (or upon entering governance view)
   useEffect(() => {
@@ -1996,17 +2023,17 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
               <div className="space-y-3 max-h-[700px] overflow-y-auto pr-1">
                 {clubs
                   .filter(c => {
-                    const matchesSearch = c.name.toLowerCase().includes(ffpSearchQuery.toLowerCase());
-                    if (!matchesSearch) return false;
-                    const ffp = getClubFfpDetails(c, players, agency.currentWeek);
+                    if (ffpSearchQuery && !c.name.toLowerCase().includes(ffpSearchQuery.toLowerCase())) return false;
+                    const ffp = batchFfpMap.get(c.id);
+                    if (!ffp) return false;
                     if (ffpFilterStatus === 'breach') return ffp.status === 'In FFP Breach';
                     if (ffpFilterStatus === 'warning') return ffp.status === 'At Risk';
                     if (ffpFilterStatus === 'compliant') return ffp.status === 'Compliant';
                     return true;
                   })
                   .map((club) => {
-                    const ffp = getClubFfpDetails(club, players, agency.currentWeek);
-                    const clubMyClients = players.filter(p => p.isMyClient && p.clubId === club.id);
+                    const ffp = batchFfpMap.get(club.id)!;
+                    const clubMyClients = clientsByClub.get(club.id) || [];
 
                     let badgeStyle = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40';
                     if (ffp.status === 'In FFP Breach') badgeStyle = 'bg-red-500/20 text-red-400 border-red-500/40 animate-pulse';

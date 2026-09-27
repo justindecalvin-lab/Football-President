@@ -33,13 +33,19 @@ export function processWeeklyPlayerProgressionAndDegradation(
   const newsItems: NewsItem[] = [];
   const toastMessages: string[] = [];
 
+  // Index clubs for O(1) instant lookup to eliminate 5,000,000 linear search iterations
+  const clubById = new Map<string, Club>();
+  for (let i = 0; i < clubs.length; i++) {
+    clubById.set(clubs[i].id, clubs[i]);
+  }
+
   updatedPlayers.forEach(player => {
     // Free agents or retired skip match-based form logic
     if (!player.clubId || player.clubId === 'free_agent' || player.clubId === 'c_free') {
       return;
     }
 
-    const club = clubs.find(c => c.id === player.clubId);
+    const club = clubById.get(player.clubId);
     let ratingChanged = false;
     let originalRating = player.rating;
     let degradationReason = '';
