@@ -1,0 +1,6 @@
+{
+  "name": "Football Agent Studio",
+  "description": "Comprehensive football agency, club ownership, and federation governance simulation featuring deep contract clauses, FFP regulations, squad registration, and player career dynamics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
