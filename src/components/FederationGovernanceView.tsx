@@ -71,6 +71,9 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
   onUpdateClub,
   addToast
 }) => {
+  const notify = (msg: string, type: "success" | "error" | "info" = "info") => {
+    if (addToast) addToast(msg, type);
+  };
   const [activeTab, setActiveTab] = useState<
     'certification' | 'federation_treasury' | 'tribunal_court' | 'league_reform' | 'ffp_monitor' | 'career_path' | 'campaign' | 'policies' | 'conflict_ethics' | 'global_suite' | 'executive_hearings'
   >('certification');
@@ -130,7 +133,7 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
 
   const handleApproveAgencyApplication = (appId: string) => {
     if (agency.activeRoles?.currentRole !== 'fa_president') {
-      alert('🔒 FA President Authority Required: You must be elected and active as FA / Competition President to approve or deny agency licensing applications.');
+      notify('🔒 FA President Authority Required: You must be elected and active as FA / Competition President to approve or deny agency licensing applications.');
       return;
     }
 
@@ -147,12 +150,12 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
 
     if (agency.soundEnabled) soundEngine.playCashSound();
     confetti({ particleCount: 70, spread: 70 });
-    alert(`🏛️ Agency License Granted! ${target.name} approved by Federation Board. +${formatMoney(target.licensingFee)} licensing fee collected into treasury!`);
+    notify(`🏛️ Agency License Granted! ${target.name} approved by Federation Board. +${formatMoney(target.licensingFee)} licensing fee collected into treasury!`);
   };
 
   const handleRejectAgencyApplication = (appId: string) => {
     if (agency.activeRoles?.currentRole !== 'fa_president') {
-      alert('🔒 FA President Authority Required: You must be elected and active as FA / Competition President to approve or deny agency licensing applications.');
+      notify('🔒 FA President Authority Required: You must be elected and active as FA / Competition President to approve or deny agency licensing applications.');
       return;
     }
 
@@ -160,7 +163,7 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
     if (!target) return;
 
     setApplicantAgencies(prev => prev.map(a => a.id === appId ? { ...a, status: 'rejected' } : a));
-    alert(`🏛️ License Application Denied: ${target.name} application rejected.`);
+    notify(`🏛️ License Application Denied: ${target.name} application rejected.`);
   };
 
   // -------------------------------------------------------------------------
@@ -215,7 +218,7 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
 
   const handleVoteOnReform = (proposalId: string, choice: 'for' | 'against' | 'abstain') => {
     if (agency.activeRoles?.currentRole !== 'fa_president') {
-      alert('🔒 FA President Authority Required: You must be elected and active as FA / Competition President to cast votes on League Reform legislation.');
+      notify('🔒 FA President Authority Required: You must be elected and active as FA / Competition President to cast votes on League Reform legislation.');
       return;
     }
 
@@ -243,18 +246,18 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
     if (agency.soundEnabled) soundEngine.playClickSound();
     const prop = reformProposals.find(p => p.id === proposalId);
     if (prop) {
-      alert(`📜 League Reform Vote Cast! You voted "${choice.toUpperCase()}" on "${prop.title}". Updated in Federation Assembly.`);
+      notify(`📜 League Reform Vote Cast! You voted "${choice.toUpperCase()}" on "${prop.title}". Updated in Federation Assembly.`);
     }
   };
 
   const handleLobbyReformDelegates = (proposalId: string) => {
     if (agency.activeRoles?.currentRole !== 'fa_president') {
-      alert('🔒 FA President Authority Required: You must be elected and active as FA / Competition President to lobby delegates on League Reform.');
+      notify('🔒 FA President Authority Required: You must be elected and active as FA / Competition President to lobby delegates on League Reform.');
       return;
     }
 
     if (agency.balance < 1000000) {
-      alert('Need €1,000,000 to lobby delegate committee on League Reform!');
+      notify('Need €1,000,000 to lobby delegate committee on League Reform!');
       return;
     }
 
@@ -276,7 +279,7 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
     }));
 
     if (agency.soundEnabled) soundEngine.playCashSound();
-    alert('🏛️ Lobbying Campaign Executed! Swung +3 Delegate Votes in favor of the proposal (+5 Political Influence).');
+    notify('🏛️ Lobbying Campaign Executed! Swung +3 Delegate Votes in favor of the proposal (+5 Political Influence).');
   };
 
   // -------------------------------------------------------------------------
@@ -346,7 +349,7 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
     if (addToast) {
       addToast(msg, 'error');
     } else {
-      alert(msg);
+      notify(msg);
     }
     if (agency.soundEnabled) soundEngine.playCashSound();
   };
@@ -365,7 +368,7 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
     if (addToast) {
       addToast(msg, 'success');
     } else {
-      alert(msg);
+      notify(msg);
     }
   };
 
@@ -373,7 +376,7 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
   const handleBulkRestructureAll = () => {
     if (representedClientsAtRisk.length === 0) {
       if (addToast) addToast('No represented clients are currently at clubs with FFP debt risks.', 'info');
-      else alert('No represented clients are currently at clubs with FFP debt risks.');
+      else notify('No represented clients are currently at clubs with FFP debt risks.');
       return;
     }
 
@@ -387,7 +390,7 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
     if (addToast) {
       addToast(msg, 'success');
     } else {
-      alert(msg);
+      notify(msg);
     }
   };
 
@@ -401,11 +404,11 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
       if (addToast) {
         addToast(summaryMessage, sanctionType === 'fine' ? 'success' : 'info');
       } else {
-        alert(summaryMessage);
+        notify(summaryMessage);
       }
     } catch (err: any) {
       if (addToast) addToast(err.message, 'error');
-      else alert(err.message);
+      else notify(err.message);
     }
   };
 
@@ -422,18 +425,18 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
   const handleFfpAudit = (clubId: string, action: 'warning' | 'fine' | 'ban') => {
     const targetClub = clubs.find(c => c.id === clubId);
     if (!targetClub) {
-      alert('Please select a target club to perform FFP Audit!');
+      notify('Please select a target club to perform FFP Audit!');
       return;
     }
     if (action === 'fine') {
       if (onUpdateClub) {
         onUpdateClub({ ...targetClub, transferBudget: Math.max(0, targetClub.transferBudget - 10000000) });
       }
-      alert(`FFP Audit Executed: €10,000,000 Financial Fine levied on ${targetClub.name}!`);
+      notify(`FFP Audit Executed: €10,000,000 Financial Fine levied on ${targetClub.name}!`);
     } else if (action === 'ban') {
-      alert(`FFP Audit Executed: ${targetClub.name} issued European Competition Registration Ban for non-compliance!`);
+      notify(`FFP Audit Executed: ${targetClub.name} issued European Competition Registration Ban for non-compliance!`);
     } else {
-      alert(`FFP Audit Executed: Formal FFP Warning issued to ${targetClub.name}.`);
+      notify(`FFP Audit Executed: Formal FFP Warning issued to ${targetClub.name}.`);
     }
     if (agency.soundEnabled) soundEngine.playCashSound();
   };
@@ -451,13 +454,13 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
         }
       }
     });
-    alert(`Super League Legislative Resolution Passed! Breakaway Super League is now ${newStatus}! (+10 Federation Prestige)`);
+    notify(`Super League Legislative Resolution Passed! Breakaway Super League is now ${newStatus}! (+10 Federation Prestige)`);
     if (agency.soundEnabled) soundEngine.playCashSound();
   };
 
   const handleAppointNationalManager = () => {
     if (agency.balance < 5000000) {
-      alert('Need €5,000,000 in federation funds to hire National Team Coach!');
+      notify('Need €5,000,000 in federation funds to hire National Team Coach!');
       return;
     }
     onUpdateAgency({
@@ -471,13 +474,13 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
         }
       }
     });
-    alert(`Official Appointment: ${selectedCoachName} appointed Head Coach of ${selectedNationalTeam}!`);
+    notify(`Official Appointment: ${selectedCoachName} appointed Head Coach of ${selectedNationalTeam}!`);
     if (agency.soundEnabled) soundEngine.playCashSound();
   };
 
   const handleWorldCupHostBid = () => {
     if (agency.balance < 10000000) {
-      alert('Need €10,000,000 capital for FIFA World Cup Bidding Campaign!');
+      notify('Need €10,000,000 capital for FIFA World Cup Bidding Campaign!');
       return;
     }
     onUpdateAgency({
@@ -493,7 +496,7 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
       }
     });
     confetti({ particleCount: 70, spread: 80, origin: { y: 0.6 } });
-    alert(`FIFA World Cup Hosting Bid Submitted! Official host selection campaign launched (+15 Global Prestige)!`);
+    notify(`FIFA World Cup Hosting Bid Submitted! Official host selection campaign launched (+15 Global Prestige)!`);
   };
 
   const handleVarAndRulebook = (varSetting: 'Strict' | 'Lenient' | 'Off') => {
@@ -507,12 +510,12 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
         }
       }
     });
-    alert(`Rulebook Legislative Update: VAR Strictness now set to ${varSetting}. Referees instructed accordingly.`);
+    notify(`Rulebook Legislative Update: VAR Strictness now set to ${varSetting}. Referees instructed accordingly.`);
   };
 
   const handleNationalYouthFacility = () => {
     if (agency.balance < 20000000) {
-      alert('Need €20,000,000 to construct National Youth Excellence Center!');
+      notify('Need €20,000,000 to construct National Youth Excellence Center!');
       return;
     }
     onUpdateAgency({
@@ -521,7 +524,7 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
       reputation: Math.min(100, agency.reputation + 12)
     });
     confetti({ particleCount: 60, spread: 70 });
-    alert('National Youth Football Excellence Center constructed! Boosted domestic youth generation nationwide.');
+    notify('National Youth Football Excellence Center constructed! Boosted domestic youth generation nationwide.');
   };
 
   const handleWorkPermitPoints = (points: number) => {
@@ -535,12 +538,12 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
         }
       }
     });
-    alert(`Work Permit Legislation Enacted: Non-domestic player point threshold set to ${points} Points.`);
+    notify(`Work Permit Legislation Enacted: Non-domestic player point threshold set to ${points} Points.`);
   };
 
   const handleRefereeIntegrity = () => {
     if (agency.balance < 3000000) {
-      alert('Need €3,000,000 to fund FIFA Integrity Commission!');
+      notify('Need €3,000,000 to fund FIFA Integrity Commission!');
       return;
     }
     onUpdateAgency({
@@ -554,7 +557,7 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
         }
       }
     });
-    alert('FIFA Integrity Commission & Referee Panel Audit deployed! Match-fixing risk minimized to 0%.');
+    notify('FIFA Integrity Commission & Referee Panel Audit deployed! Match-fixing risk minimized to 0%.');
   };
 
   const handleTvRightsTender = () => {
@@ -570,7 +573,7 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
       }
     });
     confetti({ particleCount: 80, spread: 90 });
-    alert('Global Broadcast Rights Tender Signed! €1.5 Billion multi-year broadcasting package sealed (+€15,000,000 Federation Dividend)!');
+    notify('Global Broadcast Rights Tender Signed! €1.5 Billion multi-year broadcasting package sealed (+€15,000,000 Federation Dividend)!');
   };
 
   const handleAgentExamLicensing = () => {
@@ -585,7 +588,7 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
         }
       }
     });
-    alert('Mandatory FIFA Agent Licensing Exam System Enacted! Unlicensed agents barred and €5,000,000 licensing revenue collected.');
+    notify('Mandatory FIFA Agent Licensing Exam System Enacted! Unlicensed agents barred and €5,000,000 licensing revenue collected.');
   };
 
   const handleSupercupGlobalHosting = (location: string) => {
@@ -601,11 +604,11 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
       }
     });
     confetti({ particleCount: 50 });
-    alert(`Domestic Supercup Rights awarded to ${location}! Generated €12,000,000 hosting fee revenue.`);
+    notify(`Domestic Supercup Rights awarded to ${location}! Generated €12,000,000 hosting fee revenue.`);
   };
 
   const handleAntiDopingAudit = () => {
-    alert('Unannounced Anti-Doping Blood Audits executed across all league squads! Integrity score 100%.');
+    notify('Unannounced Anti-Doping Blood Audits executed across all league squads! Integrity score 100%.');
   };
 
   const handleLuxuryTaxSystem = () => {
@@ -619,7 +622,7 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
         }
       }
     });
-    alert('Luxury Spending Tax Enacted! 10% tax on high-spending clubs re-allocated to grassroots academies.');
+    notify('Luxury Spending Tax Enacted! 10% tax on high-spending clubs re-allocated to grassroots academies.');
   };
 
   const handleForeignTakeoverShield = () => {
@@ -633,7 +636,7 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
         }
       }
     });
-    alert('Foreign Sovereign Wealth Immunity Law Enacted! Protected domestic clubs against hostile foreign state takeovers.');
+    notify('Foreign Sovereign Wealth Immunity Law Enacted! Protected domestic clubs against hostile foreign state takeovers.');
   };
 
   const handleHallOfFameInduction = (name: string) => {
@@ -651,7 +654,7 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
       }
     });
     confetti({ particleCount: 60 });
-    alert(`Official Federation Medal of Honor awarded to ${name}! Added to Football Hall of Fame (+5 Reputation).`);
+    notify(`Official Federation Medal of Honor awarded to ${name}! Added to Football Hall of Fame (+5 Reputation).`);
   };
   // Selected player for scouting own club
   const [selectedScoutPlayerId, setSelectedScoutPlayerId] = useState<string>('');
@@ -711,7 +714,7 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
     const costs = [0, 500000, 2500000, 10000000, 50000000];
     const cost = costs[agency.officeLevel];
     if (agency.balance < cost) {
-      alert(`Need ${formatMoney(cost)} capital to upgrade Agency HQ to Level ${nextLvl}!`);
+      notify(`Need ${formatMoney(cost)} capital to upgrade Agency HQ to Level ${nextLvl}!`);
       return;
     }
     onUpdateAgency({
@@ -722,7 +725,7 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
     });
     if (agency.soundEnabled) soundEngine.playCashSound();
     confetti({ particleCount: 80, spread: 70 });
-    alert(`🏢 Agency HQ Upgraded to Level ${nextLvl}! Qualified for higher federation governance candidacies (+5 Reputation)!`);
+    notify(`🏢 Agency HQ Upgraded to Level ${nextLvl}! Qualified for higher federation governance candidacies (+5 Reputation)!`);
   };
 
   // Step Down / Vacate Seat Handler
@@ -738,14 +741,14 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
           reElectionStatus: 'expired'
         }
       });
-      alert('You have stepped down from office.');
+      notify('You have stepped down from office.');
     }
   };
 
   // Execute Federation Scenario Option
   const handleExecuteScenarioOption = (scenario: FederationActionScenario, optionId: string) => {
     if (agency.activeRoles?.currentRole !== 'fa_president') {
-      alert('🔒 FA President Authority Required: You must be elected and active as FA / Competition President to adjudicate Federation Executive Hearings.');
+      notify('🔒 FA President Authority Required: You must be elected and active as FA / Competition President to adjudicate Federation Executive Hearings.');
       return;
     }
 
@@ -777,7 +780,7 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
       confetti({ particleCount: 80, spread: 80 });
     }
 
-    alert(`🏛️ Federation Rulings Executed: ${opt.outcomeTitle}\n\n${opt.outcomeText}`);
+    notify(`🏛️ Federation Rulings Executed: ${opt.outcomeTitle}\n\n${opt.outcomeText}`);
   };
 
   // Career Path Definitions with Office Requirements, Hierarchical Tier Locks & 3-Season Tenure
@@ -852,7 +855,7 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
   // Start Election Campaign for a target role
   const handleStartCampaign = (targetRole: ElectionCampaign['targetRole'], cost: number) => {
     if (agency.balance < cost) {
-      alert(`Need ${formatMoney(cost)} to fund a ${targetRole} election campaign war chest!`);
+      notify(`Need ${formatMoney(cost)} to fund a ${targetRole} election campaign war chest!`);
       return;
     }
 
@@ -899,7 +902,7 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
     if (resource === 'cash') {
       costAmount = 1000000;
       if (agency.balance < costAmount) {
-        alert('Insufficient cash balance to buy campaign ads!');
+        notify('Insufficient cash balance to buy campaign ads!');
         return;
       }
       boost = 8;
@@ -917,7 +920,7 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
       });
     } else if (resource === 'reputation') {
       if (agency.reputation < 5) {
-        alert('Need at least 5 Reputation points to leverage!');
+        notify('Need at least 5 Reputation points to leverage!');
         return;
       }
       boost = 10;
@@ -935,7 +938,7 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
       });
     } else if (resource === 'influence') {
       if ((pState.politicalInfluence || 0) < 10) {
-        alert('Need at least 10 Political Influence points!');
+        notify('Need at least 10 Political Influence points!');
         return;
       }
       boost = 12;
@@ -954,7 +957,7 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
     } else if (resource === 'gala') {
       costAmount = 2500000;
       if (agency.balance < costAmount) {
-        alert('Hosting a Gala Speech requires €2,500,000!');
+        notify('Hosting a Gala Speech requires €2,500,000!');
         return;
       }
       boost = 15;
@@ -982,7 +985,7 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
     if (!club) return;
 
     if (agency.balance < club.bribeCost) {
-      alert(`Need ${formatMoney(club.bribeCost)} to lobby ${club.clubName}!`);
+      notify(`Need ${formatMoney(club.bribeCost)} to lobby ${club.clubName}!`);
       return;
     }
 
@@ -1034,7 +1037,7 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
         if (agency.soundEnabled) soundEngine.playCashSound();
         confetti({ particleCount: 120, spread: 80, origin: { y: 0.5 } });
 
-        alert(`🏆 ELECTION VICTORY! You won the election with ${finalVotePercent}% of the voter delegates! You are now elected as ${targetRoleName} for a 3-Season Tenure!`);
+        notify(`🏆 ELECTION VICTORY! You won the election with ${finalVotePercent}% of the voter delegates! You are now elected as ${targetRoleName} for a 3-Season Tenure!`);
 
         const updatedMilestones = [
           {
@@ -1077,7 +1080,7 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
           }
         });
       } else {
-        alert(`❌ ELECTION DEFEAT! You received ${finalVotePercent}% of the delegate vote (55% required to win). Your campaign has concluded.`);
+        notify(`❌ ELECTION DEFEAT! You received ${finalVotePercent}% of the delegate vote (55% required to win). Your campaign has concluded.`);
 
         onUpdateAgency({
           ...agency,
@@ -1094,12 +1097,12 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
   // Propose & Execute Legislative Vote on League Laws
   const handleInitiateLegislativeVote = () => {
     if (agency.activeRoles?.currentRole !== 'fa_president') {
-      alert('🔒 FA President Authority Required: You must be elected and active as FA / Competition President to propose and enact Legislative League Laws.');
+      notify('🔒 FA President Authority Required: You must be elected and active as FA / Competition President to propose and enact Legislative League Laws.');
       return;
     }
 
     if (pState.lastDecreeWeek === agency.currentWeek && pState.lastDecreeSeason === agency.currentSeason) {
-      alert(`⚠️ Legislative Decree Limit Reached: The Federation Congress only allows passing 1 major policy decree per matchweek. Advance the week to debate and vote on further legislation.`);
+      notify(`⚠️ Legislative Decree Limit Reached: The Federation Congress only allows passing 1 major policy decree per matchweek. Advance the week to debate and vote on further legislation.`);
       return;
     }
 
@@ -1117,7 +1120,7 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
           if (agency.soundEnabled) soundEngine.playCashSound();
           confetti({ particleCount: 80, spread: 70 });
 
-          alert(`📜 LEGISLATIVE BILL PASSED! The new League Laws have been officially enacted across all clubs!`);
+          notify(`📜 LEGISLATIVE BILL PASSED! The new League Laws have been officially enacted across all clubs!`);
 
           const updatedMilestones = [
             {
@@ -1211,7 +1214,7 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
       }
     });
 
-    alert(`Insider Scouting Complete! Inflated ${targetPlayer.name}'s valuation (+25%). Player loyalty dropped to ${newLoyalty}% due to conflict concerns!`);
+    notify(`Insider Scouting Complete! Inflated ${targetPlayer.name}'s valuation (+25%). Player loyalty dropped to ${newLoyalty}% due to conflict concerns!`);
   };
 
   // Conflict of Interest: Negotiate Insider Contract with Perks (Fluctuates Player Loyalty)
@@ -1272,14 +1275,14 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
       }
     });
 
-    alert(`Insider Contract Executed! ${perkText} for ${targetPlayer.name}! (+${scandalIncrease} Scandal Hazard, Loyalty: ${updatedPlayer.loyalty}%)`);
+    notify(`Insider Contract Executed! ${perkText} for ${targetPlayer.name}! (+${scandalIncrease} Scandal Hazard, Loyalty: ${updatedPlayer.loyalty}%)`);
   };
 
   // Clear Conflict Scandal
   const handleClearScandal = (method: 'lawyers' | 'bribe') => {
     const cost = method === 'lawyers' ? 2000000 : 5000000;
     if (agency.balance < cost) {
-      alert(`Need ${formatMoney(cost)} to execute this legal defense!`);
+      notify(`Need ${formatMoney(cost)} to execute this legal defense!`);
       return;
     }
 
@@ -1288,7 +1291,7 @@ export const FederationGovernanceView: React.FC<FederationGovernanceViewProps> =
     const reduction = method === 'lawyers' ? 30 : 60;
     const newScandal = Math.max(0, (pState.conflictScandalLevel || 0) - reduction);
 
-    alert(`Legal action complete. Reduced Conflict Scandal level by ${reduction} points!`);
+    notify(`Legal action complete. Reduced Conflict Scandal level by ${reduction} points!`);
 
     onUpdateAgency({
       ...agency,

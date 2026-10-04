@@ -281,11 +281,15 @@ export const TransferNegotiationModal: React.FC<TransferNegotiationModalProps> =
   // Helper to execute final transfer
   const executeFinalTransfer = (agreedFee: number, agreedWage: number, agreedComm: number) => {
     if (playerEvaluation.isLockedToLoanOnly) {
-      alert(`Transfer blocked under league rules: ${player.name} moved to ${player.clubName} in this transfer window and cannot transfer permanently again until ${playerEvaluation.nextAllowedWindowName || 'the next transfer window'}. Only loan moves are permitted.`);
+      if (addToast) {
+        addToast(`Transfer blocked under league rules: ${player.name} moved to ${player.clubName} in this transfer window and cannot transfer permanently again until ${playerEvaluation.nextAllowedWindowName || 'the next transfer window'}. Only loan moves are permitted.`, 'error');
+      }
       return;
     }
     if (isPlayerRefusingMove) {
-      alert(`Cannot finalize transfer: ${player.name} refuses to join ${buyingClubName}!`);
+      if (addToast) {
+        addToast(`Cannot finalize transfer: ${player.name} refuses to join ${buyingClubName}!`, 'error');
+      }
       return;
     }
     soundEngine.playSuccess();
@@ -358,13 +362,15 @@ export const TransferNegotiationModal: React.FC<TransferNegotiationModalProps> =
         if (c.name === buyingClubName) {
           return {
             ...c,
-            transferBudget: Math.max(0, c.transferBudget - agreedFee)
+            transferBudget: Math.max(0, c.transferBudget - agreedFee),
+            seasonSpent: (c.seasonSpent || 0) + agreedFee
           };
         }
         if (c.id === player.clubId) {
           return {
             ...c,
-            transferBudget: c.transferBudget + Math.round(agreedFee * 0.9)
+            transferBudget: c.transferBudget + Math.round(agreedFee * 0.9),
+            seasonRevenue: (c.seasonRevenue || 0) + agreedFee
           };
         }
         return c;

@@ -364,18 +364,21 @@ export function executeDelegatedScoutAndSignMission(
       status: 'rejected_by_player'
     };
 
+    const failedAssistantState: AssistantDelegateState = {
+      ...assistant,
+      remainingBudget: Math.max(0, assistant.remainingBudget - assistantFee),
+      totalBudgetSpent: assistant.totalBudgetSpent + assistantFee,
+      history: [failedRecord, ...(assistant.history || [])].slice(0, 30)
+    };
+
     return {
       success: false,
       record: failedRecord,
-      updatedAssistant: {
-        ...assistant,
-        remainingBudget: Math.max(0, assistant.remainingBudget - assistantFee),
-        totalBudgetSpent: assistant.totalBudgetSpent + assistantFee,
-        history: [failedRecord, ...(assistant.history || [])].slice(0, 30)
-      },
+      updatedAssistant: failedAssistantState,
       updatedAgency: {
         ...agency,
-        balance: Math.max(0, agency.balance - assistantFee)
+        balance: Math.max(0, agency.balance - assistantFee),
+        assistantDelegate: failedAssistantState
       },
       updatedPlayers: players.some(p => p.id === candidate.id) ? players : [candidate, ...players],
       toastMessage: `❌ Assistant pitch turned down by ${candidate.name} (${candidate.position}, ${candidate.rating} OVR).`

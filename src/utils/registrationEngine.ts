@@ -455,6 +455,13 @@ export function togglePlayerSquadRegistration(
  * Checks whether a player is legally allowed to play in a competitive match.
  */
 export function checkPlayerMatchEligibility(player: Player, week: number): { eligible: boolean; reason?: string } {
+  if (player.isSuspended) {
+    return {
+      eligible: false,
+      reason: `Suspended (${player.suspensionMatchesRemaining || 1} match ban remaining)`
+    };
+  }
+
   if (player.injury?.isInjured) {
     return {
       eligible: false,
@@ -463,7 +470,7 @@ export function checkPlayerMatchEligibility(player: Player, week: number): { eli
   }
 
   // If unregistered and window is closed
-  if (player.isRegistered === false && !isSquadRegistrationOpen(week) && player.age > 21) {
+  if (player.isRegistered === false && !isSquadRegistrationOpen(week) && (player.age || 22) > 21) {
     return {
       eligible: false,
       reason: `Unregistered with Federation (25-man roster cap & Foreign quota)`

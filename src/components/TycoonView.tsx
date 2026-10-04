@@ -39,6 +39,10 @@ export const TycoonView: React.FC<TycoonViewProps> = ({
 }) => {
   const [electionTarget, setElectionTarget] = useState<{ club: Club; share: ClubShare } | null>(null);
 
+  const notify = (msg: string, type: 'success' | 'error' | 'info' = 'info') => {
+    if (addToast) addToast(msg, type);
+  };
+
   // Upgrade Office HQ Level
   const handleUpgradeOffice = () => {
     const nextLevel = agency.officeLevel + 1;
@@ -48,7 +52,7 @@ export const TycoonView: React.FC<TycoonViewProps> = ({
     const cost = costs[agency.officeLevel];
 
     if (agency.balance < cost) {
-      alert(`Need ${formatMoney(cost)} to upgrade HQ to Level ${nextLevel}!`);
+      notify(`Need ${formatMoney(cost)} to upgrade HQ to Level ${nextLevel}!`, 'error');
       return;
     }
 
@@ -59,6 +63,7 @@ export const TycoonView: React.FC<TycoonViewProps> = ({
       officeLevel: nextLevel,
       reputation: Math.min(100, agency.reputation + 5)
     });
+    notify(`Headquarters upgraded to Level ${nextLevel}! (+5 Reputation)`, 'success');
   };
 
   // Buy Real Estate
@@ -67,7 +72,7 @@ export const TycoonView: React.FC<TycoonViewProps> = ({
     if (!re || re.owned) return;
 
     if (agency.balance < re.cost) {
-      alert(`Need ${formatMoney(re.cost)} capital to purchase ${re.name}!`);
+      notify(`Need ${formatMoney(re.cost)} capital to purchase ${re.name}!`, 'error');
       return;
     }
 
@@ -78,6 +83,7 @@ export const TycoonView: React.FC<TycoonViewProps> = ({
       balance: agency.balance - re.cost,
       realEstate: updated
     });
+    notify(`Acquired commercial property: ${re.name}!`, 'success');
   };
 
   // Buy Luxury Asset
@@ -86,7 +92,7 @@ export const TycoonView: React.FC<TycoonViewProps> = ({
     if (!asset || asset.owned) return;
 
     if (agency.balance < asset.cost) {
-      alert(`Need ${formatMoney(asset.cost)} capital to buy ${asset.name}!`);
+      notify(`Need ${formatMoney(asset.cost)} capital to buy ${asset.name}!`, 'error');
       return;
     }
 
@@ -98,6 +104,7 @@ export const TycoonView: React.FC<TycoonViewProps> = ({
       luxuryAssets: updated,
       reputation: Math.min(100, agency.reputation + asset.prestige)
     });
+    notify(`Purchased luxury asset: ${asset.name}! (+${asset.prestige} Prestige)`, 'success');
   };
 
   // Buy Club Shares (>50% Automatically Becomes President, <50% can run election)
@@ -107,7 +114,7 @@ export const TycoonView: React.FC<TycoonViewProps> = ({
 
     const shareCost = Math.round(club.reputation * 350000); // e.g. €28M - €35M for 20%
     if (agency.balance < shareCost) {
-      alert(`Need ${formatMoney(shareCost)} to acquire 20% equity in ${club.name}!`);
+      notify(`Need ${formatMoney(shareCost)} to acquire 20% equity in ${club.name}!`, 'error');
       return;
     }
 

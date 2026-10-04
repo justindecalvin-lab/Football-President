@@ -30,6 +30,7 @@ interface UnrestHotlineViewProps {
   onOpenTab: (tab: string) => void;
   agency?: AgencyState;
   onUpdateAgency?: (agency: AgencyState) => void;
+  addToast?: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
 
 export interface NegotiationChoice {
@@ -66,9 +67,16 @@ export const UnrestHotlineView: React.FC<UnrestHotlineViewProps> = ({
   onOpenTransferModal,
   onOpenTab,
   agency,
-  onUpdateAgency
+  onUpdateAgency,
+  addToast
 }) => {
   const [activeModal, setActiveModal] = useState<NegotiationModalState | null>(null);
+
+  const notify = (msg: string, type: 'success' | 'error' | 'info' = 'info') => {
+    if (addToast) {
+      addToast(msg, type);
+    }
+  };
 
   // Contract Negotiation Suite State
   const [customContractPlayer, setCustomContractPlayer] = useState<Player | null>(null);
@@ -706,13 +714,13 @@ export const UnrestHotlineView: React.FC<UnrestHotlineViewProps> = ({
 
     onUpdatePlayer(updated);
     soundEngine.playSuccess();
-    alert(`📢 Crisis PR Deployed! Cleaned up press controversy, reduced scandal by 45%, and pacified locker-room friction.`);
+    notify('Crisis PR Deployed! Cleaned up press controversy, reduced scandal by 45%, and pacified locker-room friction.', 'success');
   };
 
   const handleCoachPeaceSummit = (player: Player) => {
     const isAgent = !agency?.activeRoles?.currentRole || agency.activeRoles.currentRole === 'agent';
     if (!isAgent) {
-      alert('Governance Lock: Only player agents can conduct bilateral coach summits on behalf of clients.');
+      notify('Governance Lock: Only player agents can conduct bilateral coach summits on behalf of clients.', 'error');
       return;
     }
 
@@ -732,18 +740,18 @@ export const UnrestHotlineView: React.FC<UnrestHotlineViewProps> = ({
 
     onUpdatePlayer(updated);
     soundEngine.playSuccess();
-    alert(`🤝 Coach Peace Summit Concluded! ${player.name} has been guaranteed playing time and discontent has been completely cleared!`);
+    notify(`Coach Peace Summit Concluded! ${player.name} has been guaranteed playing time and discontent has been completely cleared!`, 'success');
   };
 
   const handleEmergencyRetentionGrant = (player: Player) => {
     const isAgent = !agency?.activeRoles?.currentRole || agency.activeRoles.currentRole === 'agent';
     if (!isAgent) {
-      alert('Governance Lock: Only player agents can issue representation loyalty grants.');
+      notify('Governance Lock: Only player agents can issue representation loyalty grants.', 'error');
       return;
     }
     const bonusCost = 25000;
     if (agencyBalance < bonusCost) {
-      alert(`Insufficient funds! Emergency retention grant requires ${formatMoney(bonusCost)}.`);
+      notify(`Insufficient funds! Emergency retention grant requires ${formatMoney(bonusCost)}.`, 'error');
       return;
     }
 
@@ -772,7 +780,7 @@ export const UnrestHotlineView: React.FC<UnrestHotlineViewProps> = ({
 
     onUpdatePlayer(updated);
     soundEngine.playSuccess();
-    alert(`💰 Loyalty Retention Bonus Granted! ${player.name}'s loyalty surged to 95%, cancelling all transfer demands.`);
+    notify(`Loyalty Retention Bonus Granted! ${player.name}'s loyalty surged to 95%, cancelling all transfer demands.`, 'success');
   };
 
   const isAgentRole = !agency?.activeRoles?.currentRole || agency.activeRoles.currentRole === 'agent';
@@ -783,7 +791,7 @@ export const UnrestHotlineView: React.FC<UnrestHotlineViewProps> = ({
       <div className="bg-gradient-to-r from-red-950 via-slate-900 to-amber-950 border-2 border-red-500/80 p-5 rounded-3xl shadow-2xl space-y-3">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-2xl bg-red-500/20 border border-red-500/40 flex items-center justify-center text-red-400 font-extrabold text-2xl animate-pulse shrink-0">
-            🔥
+            <Flame className="w-6 h-6 text-red-400" />
           </div>
           <div>
             <h2 className="text-xl font-black text-red-100 flex items-center gap-2">
@@ -813,7 +821,9 @@ export const UnrestHotlineView: React.FC<UnrestHotlineViewProps> = ({
 
       {unrestClients.length === 0 ? (
         <div className="bg-slate-900 border border-slate-800 rounded-3xl p-10 text-center space-y-4 shadow-xl">
-          <div className="text-5xl">😌</div>
+          <div className="w-14 h-14 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center justify-center mx-auto text-emerald-400">
+            <CheckCircle2 className="w-8 h-8" />
+          </div>
           <h3 className="font-extrabold text-slate-100 text-lg">All Clients Are Content & Satisfied!</h3>
           <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
             No player is currently experiencing manager clashes or wage discontent. Check back as match weeks progress or manage squad rosters.

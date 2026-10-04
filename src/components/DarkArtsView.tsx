@@ -8,35 +8,45 @@ interface DarkArtsViewProps {
   players: Player[];
   onUpdateAgency: React.Dispatch<React.SetStateAction<AgencyState>>;
   onUpdatePlayer: (player: Player) => void;
+  addToast?: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
 export const DarkArtsView: React.FC<DarkArtsViewProps> = ({
   agency,
   players,
   onUpdateAgency,
-  onUpdatePlayer
+  onUpdatePlayer,
+  addToast
 }) => {
   const clients = players.filter(p => p.isMyClient);
   const [opsLog, setOpsLog] = React.useState<Array<{ id: string; text: string; time: string }>>([]);
   const [activeOpsMap, setActiveOpsMap] = React.useState<{ [key: string]: string }>({});
+
+  const notify = (msg: string, type: 'success' | 'error' | 'info' = 'info') => {
+    if (addToast) {
+      addToast(msg, type);
+    }
+  };
 
   const isAgentRole = agency.activeRoles?.currentRole === 'agent';
   const isFaPresident = agency.activeRoles?.currentRole === 'fa_president';
 
   const handleLeakedPressStrike = (player: Player) => {
     if (!isAgentRole) {
-      alert(isFaPresident 
-        ? '🔒 FIFA Ethics Lockdown: An active FA President running illegal tabloid press leaks is subject to immediate FIFA Ethics Committee impeachment.'
-        : '🔒 Club President Restriction: Boardroom Presidents cannot operate unsanctioned agency media leaks.'
+      notify(
+        isFaPresident 
+          ? 'FIFA Ethics Lockdown: An active FA President running illegal tabloid press leaks is subject to immediate FIFA Ethics Committee impeachment.'
+          : 'Club President Restriction: Boardroom Presidents cannot operate unsanctioned agency media leaks.',
+        'error'
       );
       return;
     }
     if (player.lastDarkArtOpWeek === agency.currentWeek && player.lastDarkArtOpSeason === agency.currentSeason) {
-      alert(`⚠️ ${player.name} is already under active media fallout from a dark arts strike this week. Advance the week to dispatch another op.`);
+      notify(`${player.name} is already under active media fallout from a dark arts strike this week. Advance the week to dispatch another op.`, 'error');
       return;
     }
     if (agency.balance < 50000) {
-      alert('Need €50,000 to coordinate press leaks!');
+      notify('Need €50,000 to coordinate press leaks!', 'error');
       return;
     }
     onUpdateAgency(prev => ({ 
@@ -56,27 +66,29 @@ export const DarkArtsView: React.FC<DarkArtsViewProps> = ({
     };
     onUpdatePlayer(updated);
 
-    const logMsg = `📰 Press Leak Dispatched for ${player.name}! (+25 Scandal Hazard, -30 Morale)`;
+    const logMsg = `Press Leak Dispatched for ${player.name} (+25 Scandal Hazard, -30 Morale)`;
     setOpsLog(prev => [{ id: String(Date.now()), text: logMsg, time: 'Just now' }, ...prev]);
     setActiveOpsMap(prev => ({ ...prev, [`leak_${player.id}`]: 'Press Leak Dispatched' }));
 
-    alert(logMsg);
+    notify(logMsg, 'info');
   };
 
   const handleBribeSportingDirector = (player: Player) => {
     if (!isAgentRole) {
-      alert(isFaPresident 
-        ? '🔒 Anti-Corruption Lockdown: As FA President, bribery constitutes a criminal sports integrity violation under FIFA governance.'
-        : '🔒 Club President Restriction: Bribery between club executives is strictly prohibited.'
+      notify(
+        isFaPresident 
+          ? 'Anti-Corruption Lockdown: As FA President, bribery constitutes a criminal sports integrity violation under FIFA governance.'
+          : 'Club President Restriction: Bribery between club executives is strictly prohibited.',
+        'error'
       );
       return;
     }
     if (player.lastDarkArtOpWeek === agency.currentWeek && player.lastDarkArtOpSeason === agency.currentSeason) {
-      alert(`⚠️ Offshore envelope already delivered for ${player.name} this week. Advance to next week before running another bribe.`);
+      notify(`Offshore envelope already delivered for ${player.name} this week. Advance to next week before running another operation.`, 'error');
       return;
     }
     if (agency.balance < 150000) {
-      alert('Need €150,000 for offshore Director gift envelope!');
+      notify('Need €150,000 for offshore Director gift envelope!', 'error');
       return;
     }
     onUpdateAgency(prev => ({ 
@@ -93,11 +105,11 @@ export const DarkArtsView: React.FC<DarkArtsViewProps> = ({
     };
     onUpdatePlayer(updated);
 
-    const logMsg = `💼 Offshore Director Envelope Delivered for ${player.name}! (+35% Wage Increase to ${formatMoney(updated.wage)}/wk)`;
+    const logMsg = `Offshore Director Envelope Delivered for ${player.name}! (+35% Wage Increase to ${formatMoney(updated.wage)}/wk)`;
     setOpsLog(prev => [{ id: String(Date.now()), text: logMsg, time: 'Just now' }, ...prev]);
     setActiveOpsMap(prev => ({ ...prev, [`bribe_${player.id}`]: 'Offshore Bribe Active' }));
 
-    alert(logMsg);
+    notify(logMsg, 'success');
   };
 
   return (

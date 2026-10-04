@@ -1,6 +1,6 @@
 import { AgencyState, Player, Club, LoanDeal, NewsItem, PresidencyState } from '../types';
 import { formatMoney } from './gameEngine';
-import { getCurrentTransferWindowId } from './transferEvaluationEngine';
+import { getCurrentTransferWindowId, isTransferWindowOpen } from './transferEvaluationEngine';
 
 export interface LoanEvaluationResult {
   accepted: boolean;
@@ -540,8 +540,7 @@ export function executeBuybackClause(
   const updatedAgency: AgencyState = {
     ...agency,
     balance: newBalance,
-    loanDeals: updatedDeals,
-    totalTransferEarnings: agency.totalTransferEarnings + buybackFee
+    loanDeals: updatedDeals
   };
 
   const newsItem: NewsItem = {
@@ -639,8 +638,8 @@ export function recallLoaneePlayer(
     return { success: false, message: 'Target player no longer exists.', updatedAgency: agency, updatedPlayers: players };
   }
 
-  // Official FIFA Transfer Window Check (Summer: Wk 1-12, Winter: Wk 22-26)
-  const isTransferWindow = (agency.currentWeek >= 1 && agency.currentWeek <= 12) || (agency.currentWeek >= 22 && agency.currentWeek <= 26);
+  // Official FIFA Transfer Window Check (Summer: Wks 1-8, Winter: Wks 20-24)
+  const isTransferWindow = isTransferWindowOpen(agency.currentWeek);
   const emergencyBreakFee = Math.max(250000, Math.round((targetPlayer.value || 2000000) * 0.05));
 
   let newAgencyBalance = agency.balance;
@@ -651,7 +650,7 @@ export function recallLoaneePlayer(
     if (agency.balance < emergencyBreakFee) {
       return {
         success: false,
-        message: `❌ Transfer Window Guardrail: Loan recalls outside official transfer windows (Summer Wk 1-12, Winter Wk 22-26) require an Emergency Break-Clause Compensation fee of €${formatMoney(emergencyBreakFee)}. (Your balance: €${formatMoney(agency.balance)}). Wait for the January/Summer window or inject agency capital.`,
+        message: `❌ Transfer Window Guardrail: Loan recalls outside official transfer windows (Summer Wks 1-8, Winter Wks 20-24) require an Emergency Break-Clause Compensation fee of €${formatMoney(emergencyBreakFee)}. (Your balance: €${formatMoney(agency.balance)}). Wait for the January/Summer window or inject agency capital.`,
         updatedAgency: agency,
         updatedPlayers: players
       };

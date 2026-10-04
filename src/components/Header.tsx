@@ -56,6 +56,7 @@ interface HeaderProps {
   onUpdateAgency?: (agency: AgencyState) => void;
   onOpenUniversalSearch?: () => void;
   onOpenPressInterview?: () => void;
+  addToast?: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -77,7 +78,8 @@ export const Header: React.FC<HeaderProps> = ({
   onShowRoleRequirement,
   onUpdateAgency,
   onOpenUniversalSearch,
-  onOpenPressInterview
+  onOpenPressInterview,
+  addToast
 }) => {
   const [isGameMenuOpen, setIsGameMenuOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
@@ -177,8 +179,8 @@ export const Header: React.FC<HeaderProps> = ({
     if (roleKey === 'club_owner' && !hasUnlockedClubPresident) {
       if (onShowRoleRequirement) {
         onShowRoleRequirement('club_owner');
-      } else {
-        alert('🔒 Role Locked: To become Club President, acquire >50% shares in Tycoon or win a shareholder proxy election!');
+      } else if (addToast) {
+        addToast('🔒 Role Locked: To become Club President, acquire >50% shares in Tycoon or win a shareholder proxy election!', 'error');
       }
       return;
     }
@@ -186,8 +188,8 @@ export const Header: React.FC<HeaderProps> = ({
     if (roleKey === 'fa_president' && !hasUnlockedFaPresident) {
       if (onShowRoleRequirement) {
         onShowRoleRequirement('fa_president');
-      } else {
-        alert('🔒 Role Locked: To become FA President, achieve ≥85 Reputation, €50M Treasury, and 2+ Major Trophies!');
+      } else if (addToast) {
+        addToast('🔒 Role Locked: To become FA President, achieve ≥85 Reputation, €50M Treasury, and 2+ Major Trophies!', 'error');
       }
       return;
     }

@@ -124,6 +124,10 @@ export const MyPlayersView: React.FC<MyPlayersViewProps> = ({
   const [retrainingModalPlayer, setRetrainingModalPlayer] = useState<Player | null>(null);
   const [appealModalPlayer, setAppealModalPlayer] = useState<Player | null>(null);
 
+  const notify = (msg: string, type: 'success' | 'error' | 'info' = 'info') => {
+    if (addToast) addToast(msg, type);
+  };
+
   // Batch Operations Handlers
   const handleToggleSelectPlayer = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -438,7 +442,7 @@ export const MyPlayersView: React.FC<MyPlayersViewProps> = ({
   // Player Actions: Hire Trainer
   const handleHireTrainer = (player: Player) => {
     if (agencyBalance < 15000) {
-      alert('Need €15,000 to hire personal trainer!');
+      notify('Need €15,000 to hire personal trainer!', 'error');
       return;
     }
     const updated: Player = {
@@ -448,12 +452,13 @@ export const MyPlayersView: React.FC<MyPlayersViewProps> = ({
     };
     onUpdatePlayer(updated);
     setSelectedPlayer(updated);
+    notify(`Hired personal fitness specialist for ${player.name} (+12 Form, +5 Morale).`, 'success');
   };
 
   // Player Actions: Hire PR Campaign
   const handleHirePR = (player: Player) => {
     if (agencyBalance < 25000) {
-      alert('Need €25,000 for PR Scandal Cleanup!');
+      notify('Need €25,000 for PR Scandal Cleanup!', 'error');
       return;
     }
     const updated: Player = {
@@ -466,6 +471,7 @@ export const MyPlayersView: React.FC<MyPlayersViewProps> = ({
     };
     onUpdatePlayer(updated);
     setSelectedPlayer(updated);
+    notify(`PR Crisis Campaign launched for ${player.name} (-20 Scandal Level).`, 'success');
   };
 
   // Player Actions: Rebuild Loyalty
@@ -485,7 +491,7 @@ export const MyPlayersView: React.FC<MyPlayersViewProps> = ({
     }
 
     if (agencyBalance < cost) {
-      alert(`Need ${formatMoney(cost)} to execute ${label}!`);
+      notify(`Need ${formatMoney(cost)} to execute ${label}!`, 'error');
       return;
     }
 
@@ -498,7 +504,7 @@ export const MyPlayersView: React.FC<MyPlayersViewProps> = ({
 
     onUpdatePlayer(updated);
     setSelectedPlayer(updated);
-    alert(`Rebuilt client trust! ${player.name}'s Loyalty increased by +${boost} points to ${newLoyalty}%.`);
+    notify(`Rebuilt client trust: ${player.name}'s Loyalty increased by +${boost} points to ${newLoyalty}%.`, 'success');
   };
 
   // Sign Commercial Brand & Boot Sponsorship Deal
@@ -544,11 +550,7 @@ export const MyPlayersView: React.FC<MyPlayersViewProps> = ({
       });
     }
 
-    if (addToast) {
-      addToast(`⭐ ${player.name} signed exclusive sponsorship with ${brandName}! Agency received ${formatMoney(agencyUpfrontCut)} upfront commission (+${formatMoney(agencyWeeklyCut)}/wk).`, 'success');
-    } else {
-      alert(`⭐ ${player.name} signed with ${brandName}! Agency earned ${formatMoney(agencyUpfrontCut)} upfront.`);
-    }
+    notify(`${player.name} signed exclusive sponsorship with ${brandName}! Agency received ${formatMoney(agencyUpfrontCut)} upfront commission (+${formatMoney(agencyWeeklyCut)}/wk).`, 'success');
   };
 
   // Assign Senior Mentor to Junior Client
@@ -577,11 +579,7 @@ export const MyPlayersView: React.FC<MyPlayersViewProps> = ({
     onUpdatePlayer(updatedMentor);
     if (selectedPlayer?.id === mentee.id) setSelectedPlayer(updatedMentee);
 
-    if (addToast) {
-      addToast(`🎓 Mentorship Established: Senior Star ${mentor.name} is now mentoring ${mentee.name} (+3 POT, +20 Morale)!`, 'success');
-    } else {
-      alert(`🎓 Mentorship Established: ${mentor.name} is mentoring ${mentee.name}!`);
-    }
+    notify(`Mentorship Established: Senior Star ${mentor.name} is now mentoring ${mentee.name} (+3 Potential, +20 Morale).`, 'success');
   };
 
   // Break active mentorship
@@ -592,9 +590,7 @@ export const MyPlayersView: React.FC<MyPlayersViewProps> = ({
     };
     onUpdatePlayer(updated);
     if (selectedPlayer?.id === mentee.id) setSelectedPlayer(updated);
-    if (addToast) {
-      addToast(`Mentorship link for ${mentee.name} dissolved.`, 'info');
-    }
+    notify(`Mentorship link for ${mentee.name} dissolved.`, 'info');
   };
 
   // Client Unrest Handlers
@@ -613,7 +609,7 @@ export const MyPlayersView: React.FC<MyPlayersViewProps> = ({
     };
     onUpdatePlayer(updated);
     if (selectedPlayer?.id === player.id) setSelectedPlayer(updated);
-    alert(`⚡ Formal Transfer Request Submitted! ${player.name} is now listed with a 30% discount on the Transfer Market.`);
+    notify(`Formal Transfer Request Submitted: ${player.name} is now listed with a 30% discount on the Transfer Market.`, 'warning');
     onOpenTransferModal(updated);
   };
 
@@ -635,7 +631,7 @@ export const MyPlayersView: React.FC<MyPlayersViewProps> = ({
     };
     onUpdatePlayer(updated);
     if (selectedPlayer?.id === player.id) setSelectedPlayer(updated);
-    alert(`💰 Negotiated +35% Wage Increase (€${formatMoney(newWage)}/wk) with ${player.clubName}! Client is satisfied.`);
+    notify(`Negotiated +35% Wage Increase (€${formatMoney(newWage)}/wk) with ${player.clubName}! Client is satisfied.`, 'success');
   };
 
   const handleLeakToPressDarkArts = (player: Player) => {
@@ -652,12 +648,12 @@ export const MyPlayersView: React.FC<MyPlayersViewProps> = ({
     };
     onUpdatePlayer(updated);
     if (selectedPlayer?.id === player.id) setSelectedPlayer(updated);
-    alert(`📰 Tabloid Leak Released! Press coverage ignited a transfer frenzy around ${player.name}.`);
+    notify(`Tabloid Leak Released: Press coverage ignited a transfer frenzy around ${player.name}.`, 'warning');
   };
 
   const handlePacifyClient = (player: Player) => {
     if (agencyBalance < 15000) {
-      alert('Need €15,000 for private client dinner & strategy retreat!');
+      notify('Need €15,000 for private client dinner & strategy retreat!', 'error');
       return;
     }
     const curLevel = player.unrest?.discontentLevel || 50;
@@ -673,7 +669,7 @@ export const MyPlayersView: React.FC<MyPlayersViewProps> = ({
     };
     onUpdatePlayer(updated);
     if (selectedPlayer?.id === player.id) setSelectedPlayer(updated);
-    alert(`🍷 Dinner & Roadmap Meeting Completed! ${player.name}'s discontent dropped by 35 points.`);
+    notify(`Dinner & Strategy Roadmap Completed: ${player.name}'s discontent dropped by 35 points.`, 'success');
   };
 
   return (

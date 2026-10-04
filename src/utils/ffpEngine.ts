@@ -716,6 +716,7 @@ export function executeClubSanctions(
     case 'fine': {
       const fineAmount = 10000000;
       updatedClub.transferBudget = Math.max(0, updatedClub.transferBudget - fineAmount);
+      updatedClub.ffpSanctionStatus = 'fined';
       updatedAgency.balance += fineAmount;
       updatedAgency.reputation = Math.min(100, updatedAgency.reputation + 4);
       summaryMessage = `⚖️ FFP Sanction: Levied €10,000,000 regulatory fine on ${club.name}! Fine revenues paid into treasury.`;
@@ -724,10 +725,12 @@ export function executeClubSanctions(
     case 'points_deduction': {
       const deduction = 6;
       updatedClub.points = Math.max(0, updatedClub.points - deduction);
+      updatedClub.ffpSanctionStatus = 'points_deducted';
       summaryMessage = `⚖️ FFP Sanction: Deducted -6 points from ${club.name} in official league standings!`;
       break;
     }
     case 'transfer_ban': {
+      updatedClub.ffpSanctionStatus = 'transfer_banned';
       summaryMessage = `⚖️ FFP Sanction: Imposed 2-window transfer registration ban on ${club.name}! Incoming signings frozen.`;
       break;
     }

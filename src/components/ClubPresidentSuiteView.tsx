@@ -80,6 +80,10 @@ export const ClubPresidentSuiteView: React.FC<ClubPresidentSuiteViewProps> = ({
   const [powers, setPowers] = useState<ClubPresidentPowers>(existingPowers);
   const [injectAmount, setInjectAmount] = useState<number>(5000000);
 
+  const notify = (msg: string, type: 'success' | 'error' | 'info' = 'info') => {
+    if (addToast) addToast(msg, type);
+  };
+
   const isBoardApprovalActive = powers.requireBoardApprovalForMajorTransfers ?? powers.presidentialDirectives?.boardApprovalRequiredForLargeTransfers ?? true;
 
   // Toggle Board Approval requirement policy for transfers exceeding 50% treasury
@@ -98,14 +102,12 @@ export const ClubPresidentSuiteView: React.FC<ClubPresidentSuiteViewProps> = ({
       ...club,
       requireBoardApprovalOver50PercentTreasury: nextVal
     });
-    if (addToast) {
-      addToast(
-        nextVal
-          ? `🛡️ Board Approval Policy ENABLED: Transfers exceeding 50% of treasury (${formatMoney(club.transferBudget * 0.5)}) require a simulated Board Meeting mini-game!`
-          : `⚡ Executive Decree: Autocratic Presidential Approval enabled (Board hearings bypassed).`,
-        'info'
-      );
-    }
+    notify(
+      nextVal
+        ? `Board Approval Policy ENABLED: Transfers exceeding 50% of treasury (${formatMoney(club.transferBudget * 0.5)}) require a simulated Board Meeting mini-game!`
+        : `Executive Decree: Autocratic Presidential Approval enabled (Board hearings bypassed).`,
+      'info'
+    );
   };
 
   // Helper to save updated president powers
@@ -123,7 +125,7 @@ export const ClubPresidentSuiteView: React.FC<ClubPresidentSuiteViewProps> = ({
   // Inject personal agency money into club transfer budget
   const handleInjectCapital = () => {
     if (agency.balance < injectAmount) {
-      alert(`Insufficient personal agency funds! You have ${formatMoney(agency.balance)}, but need ${formatMoney(injectAmount)}.`);
+      notify(`Insufficient personal agency funds! You have ${formatMoney(agency.balance)}, but need ${formatMoney(injectAmount)}.`, 'error');
       return;
     }
 
@@ -150,6 +152,7 @@ export const ClubPresidentSuiteView: React.FC<ClubPresidentSuiteViewProps> = ({
       boardApproval: Math.min(100, powers.boardApproval + 5),
       fanApproval: Math.min(100, powers.fanApproval + 3)
     });
+    notify(`Capital Injection: Added ${formatMoney(injectAmount)} into ${club.name}'s transfer budget!`, 'success');
   };
 
   // Helper to spend money either from Club Budget or Personal Agency Funds
@@ -166,7 +169,7 @@ export const ClubPresidentSuiteView: React.FC<ClubPresidentSuiteViewProps> = ({
         transferBudget: club.transferBudget - cost
       });
       onSuccessAction();
-      alert(`[Club Budget Payment] ${title} completed! Paid ${formatMoney(cost)} directly from ${club.name}'s transfer budget.`);
+      notify(`[Club Budget Payment] ${title} completed! Paid ${formatMoney(cost)} directly from ${club.name}'s transfer budget.`, 'success');
     } else if (agency.balance >= cost) {
       if (agency.soundEnabled) soundEngine.playCashSound();
       const updatedAgency = recordFinancialTransaction(
@@ -178,9 +181,9 @@ export const ClubPresidentSuiteView: React.FC<ClubPresidentSuiteViewProps> = ({
       );
       onUpdateAgency(updatedAgency);
       onSuccessAction();
-      alert(`[Owner Investment Payment] ${title} completed! Paid ${formatMoney(cost)} from personal agency capital.`);
+      notify(`[Owner Investment Payment] ${title} completed! Paid ${formatMoney(cost)} from personal agency capital.`, 'success');
     } else {
-      alert(`Insufficient funds! Need ${formatMoney(cost)} in either ${club.name}'s transfer budget (${formatMoney(club.transferBudget)}) or personal agency balance (${formatMoney(agency.balance)}).`);
+      notify(`Insufficient funds! Need ${formatMoney(cost)} in either ${club.name}'s transfer budget (${formatMoney(club.transferBudget)}) or personal agency balance (${formatMoney(agency.balance)}).`, 'error');
     }
   };
 
@@ -240,7 +243,7 @@ export const ClubPresidentSuiteView: React.FC<ClubPresidentSuiteViewProps> = ({
       mcoList.push(club.id);
     }
     updatePowers({ ...powers, mcoGroupClubs: mcoList });
-    alert(`Multi-Club Ownership (MCO) Network established! Free priority loanee movements activated across ${mcoList.length} affiliated clubs.`);
+    notify(`Multi-Club Ownership (MCO) Network established! Free priority loanee movements activated across ${mcoList.length} affiliated clubs.`, 'success');
   };
 
   const handleStadiumNamingSponsor = () => {
@@ -268,7 +271,7 @@ export const ClubPresidentSuiteView: React.FC<ClubPresidentSuiteViewProps> = ({
       stadiumRoof: true
     });
     confetti({ particleCount: 60, spread: 70 });
-    alert(`Stadium Naming Rights Deal Signed! Stadium renamed to "${sponsorName}" (+${formatMoney(sponsorshipRevenue)} Club Budget & +€3M Agency Bonus)!`);
+    notify(`Stadium Naming Rights Deal Signed! Stadium renamed to "${sponsorName}" (+${formatMoney(sponsorshipRevenue)} Club Budget & +€3M Agency Bonus)!`, 'success');
   };
 
   const handleHireExecutive = (role: 'ccoLevel' | 'techDirectorLevel' | 'headScoutLevel' | 'prDirectorLevel') => {
@@ -287,7 +290,7 @@ export const ClubPresidentSuiteView: React.FC<ClubPresidentSuiteViewProps> = ({
 
   const handlePublicIpo = () => {
     if (powers.isPublicIpo) {
-      alert('Club shares are already listed on the Stock Exchange!');
+      notify('Club shares are already listed on the Stock Exchange!', 'info');
       return;
     }
     const ipoCapital = 100000000;
@@ -309,7 +312,7 @@ export const ClubPresidentSuiteView: React.FC<ClubPresidentSuiteViewProps> = ({
 
     updatePowers({ ...powers, isPublicIpo: true });
     confetti({ particleCount: 100, spread: 90 });
-    alert(`Public Stock IPO Completed! Raised ${formatMoney(ipoCapital)} in club equity capital and earned ${formatMoney(agencyPayout)} founder dividend!`);
+    notify(`Public Stock IPO Completed! Raised ${formatMoney(ipoCapital)} in club equity capital and earned ${formatMoney(agencyPayout)} founder dividend!`, 'success');
   };
 
   const handleSovereignPartnership = () => {
@@ -332,7 +335,7 @@ export const ClubPresidentSuiteView: React.FC<ClubPresidentSuiteViewProps> = ({
 
     updatePowers({ ...powers, sovereignPartner: 'Middle East Sovereign Investment Fund' });
     confetti({ particleCount: 90, spread: 80 });
-    alert(`Sovereign Investment Partnership Signed! Injected ${formatMoney(sovereignInjection)} into club budget and +${formatMoney(agencyCut)} to agency!`);
+    notify(`Sovereign Investment Partnership Signed! Injected ${formatMoney(sovereignInjection)} into club budget and +${formatMoney(agencyCut)} to agency!`, 'success');
   };
 
   const handleJerseySponsorship = () => {
@@ -354,7 +357,7 @@ export const ClubPresidentSuiteView: React.FC<ClubPresidentSuiteViewProps> = ({
     onUpdateAgency(updatedAgency);
 
     confetti({ particleCount: 50 });
-    alert(`Primary Jersey Shirt Sponsor Signed! +${formatMoney(clubPayout)} to club budget and +${formatMoney(agencyFee)} to agency!`);
+    notify(`Primary Jersey Shirt Sponsor Signed! +${formatMoney(clubPayout)} to club budget and +${formatMoney(agencyFee)} to agency!`, 'success');
   };
 
   const handleUltrasAtmosphere = () => {
@@ -441,14 +444,14 @@ export const ClubPresidentSuiteView: React.FC<ClubPresidentSuiteViewProps> = ({
 
     updatePowers({ ...powers, preseasonTourRegion: region });
     confetti({ particleCount: 60 });
-    alert(`Global Pre-Season Tour in ${region} completed! Earned ${formatMoney(tourRevenue)} for club and +${formatMoney(agencyCut)} for agency!`);
+    notify(`Global Pre-Season Tour in ${region} completed! Earned ${formatMoney(tourRevenue)} for club and +${formatMoney(agencyCut)} for agency!`, 'success');
   };
 
   const handleYouthSatellite = (location: string) => {
     const cost = 5000000;
     const currentSats = powers.youthSatellites || [];
     if (currentSats.includes(location)) {
-      alert(`Scouting hub in ${location} is already operational!`);
+      notify(`Scouting hub in ${location} is already operational!`, 'info');
       return;
     }
 
@@ -465,7 +468,7 @@ export const ClubPresidentSuiteView: React.FC<ClubPresidentSuiteViewProps> = ({
   const handleTransferVeto = () => {
     const newVeto = !powers.vetoTransfersActive;
     updatePowers({ ...powers, vetoTransfersActive: newVeto });
-    alert(`Presidential Transfer Veto Power is now ${newVeto ? 'ACTIVE (Sporting Director blocked from selling stars)' : 'DISABLED'}.`);
+    notify(`Presidential Transfer Veto Power is now ${newVeto ? 'ACTIVE (Sporting Director blocked from selling stars)' : 'DISABLED'}.`, 'info');
   };
 
   const handleKitSupplierDeal = () => {
@@ -488,12 +491,12 @@ export const ClubPresidentSuiteView: React.FC<ClubPresidentSuiteViewProps> = ({
 
     updatePowers({ ...powers, kitSupplierDeal: 'Nike Elite Tier €25M/yr' });
     confetti({ particleCount: 50 });
-    alert(`Nike Elite Kit Manufacturer Deal signed! +${formatMoney(bonus)} to club budget and +${formatMoney(agencyCut)} to agency!`);
+    notify(`Nike Elite Kit Manufacturer Deal signed! +${formatMoney(bonus)} to club budget and +${formatMoney(agencyCut)} to agency!`, 'success');
   };
 
   const handleCryptoFanTokens = () => {
     if (powers.cryptoFanTokensActive) {
-      alert('Club Crypto Fan Tokens are already launched and active!');
+      notify('Club Crypto Fan Tokens are already launched and active!', 'info');
       return;
     }
     const tokenRevenue = 10000000;
@@ -515,7 +518,7 @@ export const ClubPresidentSuiteView: React.FC<ClubPresidentSuiteViewProps> = ({
 
     updatePowers({ ...powers, cryptoFanTokensActive: true });
     confetti({ particleCount: 70 });
-    alert(`Club Crypto Fan Tokens launched! +${formatMoney(tokenRevenue)} to club budget and +${formatMoney(agencyCut)} to agency!`);
+    notify(`Club Crypto Fan Tokens launched! +${formatMoney(tokenRevenue)} to club budget and +${formatMoney(agencyCut)} to agency!`, 'success');
   };
 
   const handleClubMuseum = () => {
@@ -957,12 +960,12 @@ export const ClubPresidentSuiteView: React.FC<ClubPresidentSuiteViewProps> = ({
             <button
               onClick={() => {
                 if (club.transferBudget < 5000000) {
-                  alert("Club transfer budget is too low to siphon!");
+                  notify("Club transfer budget is too low to siphon!", 'error');
                   return;
                 }
                 const siphoned = Math.round(club.transferBudget * 0.15);
                 if (agency.soundEnabled) soundEngine.playCashSound();
-                alert(`Siphoned ${formatMoney(siphoned)} from club transfer budget into agency account! (+15 Scandal Hazard)`);
+                notify(`Siphoned ${formatMoney(siphoned)} from club transfer budget into agency account! (+15 Scandal Hazard)`, 'warning');
 
                 onUpdateClub({
                   ...club,
@@ -1007,11 +1010,11 @@ export const ClubPresidentSuiteView: React.FC<ClubPresidentSuiteViewProps> = ({
               onClick={() => {
                 const clientsInClub = players.filter(p => p.isMyClient && p.clubId === club.id);
                 if (clientsInClub.length === 0) {
-                  alert("No agency clients currently play for this club!");
+                  notify("No agency clients currently play for this club!", 'error');
                   return;
                 }
                 if (agency.soundEnabled) soundEngine.playClickSound();
-                alert(`Forced low release clauses on ${clientsInClub.length} agency clients at ${club.name}! (+10 Scandal Hazard)`);
+                notify(`Forced low release clauses on ${clientsInClub.length} agency clients at ${club.name}! (+10 Scandal Hazard)`, 'warning');
 
                 onUpdateAgency({
                   ...agency,
@@ -1042,7 +1045,7 @@ export const ClubPresidentSuiteView: React.FC<ClubPresidentSuiteViewProps> = ({
             <button
               onClick={() => {
                 if (agency.soundEnabled) soundEngine.playCashSound();
-                alert(`Inflated agency client valuations at ${club.name} by +30%! (+10 Scandal Hazard)`);
+                notify(`Inflated agency client valuations at ${club.name} by +30%! (+10 Scandal Hazard)`, 'warning');
 
                 onUpdateAgency({
                   ...agency,

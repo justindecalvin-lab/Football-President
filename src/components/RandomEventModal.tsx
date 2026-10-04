@@ -83,17 +83,21 @@ export const RandomEventModal: React.FC<RandomEventModalProps> = ({
       }));
     }
 
-    // Apply Club Approval Effects if target or all
+    // Apply Club Approval Effects if target club exists
     if (effects.fanApprovalChange || effects.chairmanTrustChange) {
-      setClubs(prev => prev.map(c => {
-        if (event.targetClubId ? c.id === event.targetClubId : true) {
-          return {
-            ...c,
-            chairmanTrust: Math.min(100, Math.max(0, c.chairmanTrust + (effects.chairmanTrustChange || 0)))
-          };
-        }
-        return c;
-      }));
+      setClubs(prev => {
+        const targetId = event.targetClubId || agency.presidency?.clubId;
+        if (!targetId) return prev;
+        return prev.map(c => {
+          if (c.id === targetId) {
+            return {
+              ...c,
+              chairmanTrust: Math.min(100, Math.max(0, c.chairmanTrust + (effects.chairmanTrustChange || 0)))
+            };
+          }
+          return c;
+        });
+      });
     }
 
     if ((effects.cashChange || 0) > 0 || (effects.reputationChange || 0) > 0) {

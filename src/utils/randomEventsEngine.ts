@@ -3,7 +3,9 @@ import { formatMoney } from './gameEngine';
 
 export function generateDynamicRandomEvent(agency: AgencyState, players: Player[], clubs: Club[]): RandomEvent {
   const clients = players.filter(p => p.isMyClient);
-  const sampleClient = clients.length > 0 ? clients[Math.floor(Math.random() * clients.length)] : players[0];
+  const sampleClient = clients.length > 0 
+    ? clients[Math.floor(Math.random() * clients.length)] 
+    : (players.length > 0 ? players[0] : { id: 'temp_p1', name: 'Star Prospect' } as Player);
   const sampleClub = clubs.length > 0 ? clubs[Math.floor(Math.random() * clubs.length)] : null;
 
   const eventTemplates: RandomEvent[] = [

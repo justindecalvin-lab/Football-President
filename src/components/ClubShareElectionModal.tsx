@@ -52,6 +52,10 @@ export const ClubShareElectionModal: React.FC<ClubShareElectionModalProps> = ({
     };
   } | null>(null);
 
+  const notify = (msg: string, type: 'success' | 'error' | 'info' = 'info') => {
+    if (addToast) addToast(msg, type);
+  };
+
   // Check Cooldown
   const currentWeek = agency.currentWeek || 1;
   const currentSeason = agency.currentSeason || 2026;
@@ -72,12 +76,12 @@ export const ClubShareElectionModal: React.FC<ClubShareElectionModalProps> = ({
 
   const handleRunElection = () => {
     if (inCooldown) {
-      alert(`Election cooldown in effect! You must wait ${weeksRemaining} more weeks before launching another proxy election at ${club.name}.`);
+      notify(`Election cooldown in effect! You must wait ${weeksRemaining} more weeks before launching another proxy election at ${club.name}.`, 'error');
       return;
     }
 
     if (agency.balance < campaignCost) {
-      alert(`Insufficient funds for this election campaign! Needed: ${formatMoney(campaignCost)}, Available: ${formatMoney(agency.balance)}.`);
+      notify(`Insufficient funds for this election campaign! Needed: ${formatMoney(campaignCost)}, Available: ${formatMoney(agency.balance)}.`, 'error');
       return;
     }
 

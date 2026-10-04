@@ -114,8 +114,41 @@ export default function App() {
   const [gameStarted, setGameStarted] = useState<boolean>(false);
   const [isInitializing, setIsInitializing] = useState<boolean>(true);
 
-  // Active Tab & Subviews
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  // Active Tab & Subviews with URL Query Parameter Persistence
+  const [activeTab, setActiveTabState] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const tabParam = params.get('tab');
+        if (tabParam) return tabParam;
+      } catch (e) {}
+    }
+    return 'dashboard';
+  });
+
+  const setActiveTab = useCallback((tab: string) => {
+    setActiveTabState(tab);
+    if (typeof window !== 'undefined') {
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('tab', tab);
+        window.history.pushState({ tab }, '', url.toString());
+      } catch (e) {}
+    }
+  }, []);
+
+  // Listen for browser back/forward buttons to maintain history context
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const tab = params.get('tab') || event.state?.tab || 'dashboard';
+        setActiveTabState(tab);
+      } catch (e) {}
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Interactive Dilemmas & Events
   const [activeDilemma, setActiveDilemma] = useState<PlayerDilemma | null>(null);
@@ -736,6 +769,7 @@ export default function App() {
           onUpdateAgency={setAgency}
           onOpenUniversalSearch={() => setShowUniversalSearch(true)}
           onOpenPressInterview={() => setShowPressInterviewModal(true)}
+          addToast={addToast}
         />
 
         {/* Sub-Navigation Pills Header */}
@@ -835,6 +869,7 @@ export default function App() {
                 setActiveTab('transfer_market');
               }}
               onOpenTab={setActiveTab}
+              addToast={addToast}
             />
           )}
 
@@ -950,6 +985,7 @@ export default function App() {
               players={players}
               onUpdateAgency={setAgency}
               onUpdatePlayer={handleUpdatePlayer}
+              addToast={addToast}
             />
           )}
 

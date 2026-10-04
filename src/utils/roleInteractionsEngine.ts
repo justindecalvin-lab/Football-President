@@ -612,6 +612,8 @@ export function executeSwissMedicalClinic(
     ...player,
     morale: 100,
     energy: 100,
+    condition: 100,
+    matchFitness: 100,
     injury: {
       isInjured: false,
       weeks: 0
@@ -2421,7 +2423,10 @@ export function processWeeklyExecutiveGovernance(
     let internalRequests = club.internalTransferRequests ? [...club.internalTransferRequests] : [];
 
     // 0. Periodic Internal Staff Requests Generation for User Club
-    if (allPlayers && (club.id === agency.presidency?.clubId || agency.activeRoles?.currentRole === 'club_owner')) {
+    const userOwnedClubId = agency.presidency?.clubId || (agency.activeRoles?.currentRole === 'club_owner' ? (agency.clubShares?.find(s => s.sharePercent >= 50)?.clubId || clubs[0]?.id) : undefined);
+    const isUserControlledClub = userOwnedClubId ? club.id === userOwnedClubId : false;
+
+    if (allPlayers && isUserControlledClub) {
       const activePending = internalRequests.filter(r => r.status === 'pending_president_authorization');
       if (activePending.length === 0 || (currentWeek % 3 === 0 && activePending.length < 3)) {
         const squadPlayers = allPlayers.filter(p => p.clubId === club.id);

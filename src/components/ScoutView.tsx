@@ -40,16 +40,13 @@ export const ScoutView: React.FC<ScoutViewProps> = ({
   // Hire a new Scout
   const handleHireScout = () => {
     if (agency.activeRoles?.currentRole === 'fa_president') {
-      if (addToast) addToast('🔒 FIFA Governance: FA Presidents cannot operate private commercial scouting networks.', 'error');
-      else alert('🔒 FIFA Governance: FA Presidents cannot operate private commercial scouting networks.');
+      if (addToast) addToast('FIFA Governance: FA Presidents cannot operate private commercial scouting networks.', 'error');
       return;
     }
 
     if (agency.balance < 100000) {
       if (addToast) {
         addToast('Need €100,000 capital to hire a new international scout!', 'error');
-      } else {
-        alert('Need €100,000 capital to hire a new international scout!');
       }
       return;
     }
@@ -121,8 +118,6 @@ export const ScoutView: React.FC<ScoutViewProps> = ({
     if (agency.balance < cost) {
       if (addToast) {
         addToast(`Need ${formatMoney(cost)} to upgrade ${camp.region} Youth Academy!`, 'error');
-      } else {
-        alert(`Need ${formatMoney(cost)} to upgrade ${camp.region} Youth Academy!`);
       }
       return;
     }

@@ -27,6 +27,7 @@ import {
   TargetedClubFeedback
 } from '../types';
 import { checkPlayerTransferEligibility, getCurrentTransferWindowId } from './transferEvaluationEngine';
+import { isSquadRegistrationOpen } from './registrationEngine';
 import { assignPotentialVolatilityAndRealization } from './proceduralGenerator';
 
 export function formatMoney(amount: number | null | undefined): string {
@@ -330,7 +331,7 @@ export function simulateMultiTierPromotionRelegation(clubs: Club[], season: numb
     }
   }
 
-  // Reset season points and financial spend counters for all clubs
+  // Reset season points, financial spend counters, and expired single-season sanctions for all clubs
   updatedClubs.forEach(c => {
     c.points = 0;
     c.played = 0;
@@ -342,6 +343,9 @@ export function simulateMultiTierPromotionRelegation(clubs: Club[], season: numb
     c.seasonSpent = 0;
     c.seasonRevenue = 0;
     c.seasonSpending = 0;
+    if (c.ffpSanctionStatus === 'fined' || c.ffpSanctionStatus === 'points_deducted' || c.ffpSanctionStatus === 'transfer_banned') {
+      c.ffpSanctionStatus = 'clean';
+    }
   });
 
   return { updatedClubs, newsItems };
@@ -833,16 +837,24 @@ export function simulateWeekFixtures(
       // Filter eligible squad members from pre-indexed roster in O(1)
       const homeCandidates = playersByClub.get(home.id) || [];
       const awayCandidates = playersByClub.get(away.id) || [];
-      const homeSquad = homeCandidates.filter(p => 
-        !p.isSuspended && 
-        !p.injury?.isInjured && 
-        !fieldedPlayerIdsThisWeek.has(p.id)
-      );
-      const awaySquad = awayCandidates.filter(p => 
-        !p.isSuspended && 
-        !p.injury?.isInjured && 
-        !fieldedPlayerIdsThisWeek.has(p.id)
-      );
+      const registrationClosed = !isSquadRegistrationOpen(week);
+
+      const filterEligibleSquad = (candidates: Player[]) => {
+        const eligible = candidates.filter(p => 
+          !p.isSuspended && 
+          !p.injury?.isInjured && 
+          !fieldedPlayerIdsThisWeek.has(p.id) &&
+          (!registrationClosed || p.isRegistered !== false || (p.age || 22) <= 21)
+        );
+        // Fallback to unregistered seniors only if club has insufficient players to field 11
+        if (eligible.length < 11) {
+          return candidates.filter(p => !p.isSuspended && !p.injury?.isInjured && !fieldedPlayerIdsThisWeek.has(p.id));
+        }
+        return eligible;
+      };
+
+      const homeSquad = filterEligibleSquad(homeCandidates);
+      const awaySquad = filterEligibleSquad(awayCandidates);
 
       homeSquad.forEach(p => fieldedPlayerIdsThisWeek.add(p.id));
       awaySquad.forEach(p => fieldedPlayerIdsThisWeek.add(p.id));
