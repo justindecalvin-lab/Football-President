@@ -280,8 +280,16 @@ export function simulateMultiTierPromotionRelegation(clubs: Club[], season: numb
     const t1Name = tier1Leagues[i];
     const t2Name = tier2Leagues[i];
 
-    const t1Clubs = updatedClubs.filter(c => c.league === t1Name).sort((a, b) => b.points - a.points);
-    const t2Clubs = updatedClubs.filter(c => c.league === t2Name).sort((a, b) => b.points - a.points);
+    const sortClubsByTable = (a: Club, b: Club) => {
+      if (b.points !== a.points) return b.points - a.points;
+      const gdA = (a.goalsFor || 0) - (a.goalsAgainst || 0);
+      const gdB = (b.goalsFor || 0) - (b.goalsAgainst || 0);
+      if (gdB !== gdA) return gdB - gdA;
+      return (b.goalsFor || 0) - (a.goalsFor || 0);
+    };
+
+    const t1Clubs = updatedClubs.filter(c => c.league === t1Name).sort(sortClubsByTable);
+    const t2Clubs = updatedClubs.filter(c => c.league === t2Name).sort(sortClubsByTable);
 
     if (t1Clubs.length >= 2 && t2Clubs.length >= 2) {
       // Relegate bottom 2 of Tier 1
@@ -322,7 +330,7 @@ export function simulateMultiTierPromotionRelegation(clubs: Club[], season: numb
     }
   }
 
-  // Reset season points for all clubs
+  // Reset season points and financial spend counters for all clubs
   updatedClubs.forEach(c => {
     c.points = 0;
     c.played = 0;
@@ -331,6 +339,9 @@ export function simulateMultiTierPromotionRelegation(clubs: Club[], season: numb
     c.lost = 0;
     c.goalsFor = 0;
     c.goalsAgainst = 0;
+    c.seasonSpent = 0;
+    c.seasonRevenue = 0;
+    c.seasonSpending = 0;
   });
 
   return { updatedClubs, newsItems };
@@ -870,9 +881,49 @@ export function simulateWeekFixtures(
           targetP.stats.assists += plog.assists;
           targetP.stats.avgRating = Number(((targetP.stats.avgRating * (targetP.stats.appearances - 1) + plog.rating) / targetP.stats.appearances).toFixed(1));
           
-          // Apply match physical fatigue (modified by weather & agency upgrades)
-          const baseFatigue = Math.floor(Math.random() * 8) + 10 + weatherFatigueBonus;
+          // Matchday pitchside directive
+          const clientDirective = agency?.activeMatchDirectives?.[targetP.id] || 'none';
+
+          // Apply match physical fatigue (modified by weather, directive & agency upgrades)
+          let fatigueMultiplier = 1.0;
+          if (clientDirective === 'injury_caution') fatigueMultiplier = 0.6;
+          else if (clientDirective === 'all_out_press') fatigueMultiplier = 1.25;
+
+          const baseFatigue = Math.round((Math.floor(Math.random() * 8) + 10 + weatherFatigueBonus) * fatigueMultiplier);
           targetP.condition = Math.max(20, (targetP.condition ?? 95) - baseFatigue);
+
+          // In-match strain check for fatigued players (prevented by injury_caution)
+          if (!targetP.injury?.isInjured && clientDirective !== 'injury_caution') {
+            const fatigueThreshold = (targetP.injuryResistance ?? 75) < 60 ? 60 : 45;
+            if ((targetP.condition ?? 95) < fatigueThreshold && Math.random() < 0.04) {
+              const injWeeks = Math.floor(Math.random() * 2) + 1;
+              targetP.injury = {
+                isInjured: true,
+                weeks: injWeeks,
+                description: 'Muscular Strain'
+              };
+              moments.push({
+                minute: Math.floor(Math.random() * 35) + 50,
+                text: `⚠️ INJURY: ${targetP.name} sustained a muscular strain under fatigue and was substituted.`,
+                isClientInvolved: targetP.isMyClient,
+                playerImpactName: targetP.name
+              });
+              if (targetP.isMyClient) {
+                performanceNews.push({
+                  id: `news_inj_${Date.now()}_${targetP.id}`,
+                  week,
+                  season,
+                  headline: `🚑 MATCH INJURY: Client ${targetP.name} Suffered Muscular Strain`,
+                  content: `${targetP.name} was subbed off with muscle fatigue during ${targetP.clubName}'s fixture. Club medical staff project ${injWeeks} week${injWeeks > 1 ? 's' : ''} on the sidelines.`,
+                  category: 'match',
+                  urgency: 'hot',
+                  read: false,
+                  targetRole: 'agent',
+                  relatedPlayerId: targetP.id
+                });
+              }
+            }
+          }
 
           // Card accumulation & suspension logic
           if (plog.yellowCards > 0) {
@@ -880,6 +931,7 @@ export function simulateWeekFixtures(
             if (targetP.yellowCards >= 5) {
               targetP.isSuspended = true;
               targetP.suspensionMatchesRemaining = 1;
+              targetP.justSuspendedThisWeek = true;
               targetP.yellowCards = 0;
               if (targetP.isMyClient) {
                 performanceNews.push({
@@ -902,6 +954,7 @@ export function simulateWeekFixtures(
             targetP.redCards = (targetP.redCards || 0) + 1;
             targetP.isSuspended = true;
             targetP.suspensionMatchesRemaining = 2;
+            targetP.justSuspendedThisWeek = true;
             if (targetP.isMyClient) {
               performanceNews.push({
                 id: `news_red_${Date.now()}_${targetP.id}`,
@@ -1481,12 +1534,18 @@ export function processWeeklyPlayerUnrest(
     }
 
     // Evaluate Playing Time Satisfaction based on appearances vs agreed playing time
-    const expectedApps = player.agreedPlayingTime === 'Star Player' ? Math.floor(week * 0.85) :
-                         player.agreedPlayingTime === 'Important Starter' ? Math.floor(week * 0.70) :
-                         player.agreedPlayingTime === 'Regular Starter' ? Math.floor(week * 0.50) :
-                         Math.floor(week * 0.25);
+    // Account for when player joined club (e.g. winter window) and injured/suspended status
+    const weeksAtClub = player.lastTransferWeek && player.lastTransferSeason === season
+      ? Math.max(1, week - player.lastTransferWeek)
+      : week;
 
-    const isLackingMinutes = week >= 6 && player.stats.appearances < expectedApps;
+    const expectedApps = player.agreedPlayingTime === 'Star Player' ? Math.floor(weeksAtClub * 0.80) :
+                         player.agreedPlayingTime === 'Important Starter' ? Math.floor(weeksAtClub * 0.65) :
+                         player.agreedPlayingTime === 'Regular Starter' ? Math.floor(weeksAtClub * 0.45) :
+                         Math.floor(weeksAtClub * 0.20);
+
+    const isInjuredOrSuspended = !!player.injury?.isInjured || !!player.isSuspended;
+    const isLackingMinutes = !isInjuredOrSuspended && weeksAtClub >= 5 && player.stats.appearances < expectedApps;
 
     if (isLackingMinutes) {
       player.consecutiveWeeksBenched += 1;
@@ -1494,7 +1553,9 @@ export function processWeeklyPlayerUnrest(
       player.form = Math.max(30, player.form - 2);
     } else {
       player.consecutiveWeeksBenched = Math.max(0, player.consecutiveWeeksBenched - 1);
-      player.playingTimeSatisfaction = Math.min(100, player.playingTimeSatisfaction + 4);
+      if (!isInjuredOrSuspended) {
+        player.playingTimeSatisfaction = Math.min(100, player.playingTimeSatisfaction + 4);
+      }
     }
 
     const isUnrestActive = !!player.unrest && player.unrest.status !== 'content';
@@ -3220,11 +3281,17 @@ export function processEndOfSeasonContractClauses(
   const regeneratedYouth: Player[] = [];
   let regenCounter = 1;
 
+  // Index clubs for O(1) lookup across all players
+  const clubById = new Map<string, Club>();
+  for (let i = 0; i < clubs.length; i++) {
+    clubById.set(clubs[i].id, clubs[i]);
+  }
+
   const updatedPlayers: Player[] = [];
 
   players.forEach(p => {
     let updatedPlayer = { ...p };
-    const club = clubs.find(c => c.id === p.clubId);
+    const club = clubById.get(p.clubId);
 
     // 1. Client Bonus Clauses (if represented and attached to a club)
     if (p.isMyClient && club) {

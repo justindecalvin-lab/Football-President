@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Club, Player, AgencyState, MatchdayDirectiveType } from '../types';
 import { 
   Play, 
@@ -41,24 +41,33 @@ export const MatchesView: React.FC<MatchesViewProps> = ({
   const [selectedMatch, setSelectedMatch] = useState<{ homeClub: Club; awayClub: Club } | null>(null);
   const [selectedLeagueFilter, setSelectedLeagueFilter] = useState<string>('all');
 
-  // Extract distinct leagues
-  const availableLeagues = Array.from(new Set(clubs.map(c => c.league))).sort();
+  // Extract distinct leagues with memoization
+  const availableLeagues = useMemo(() => {
+    return Array.from(new Set(clubs.map(c => c.league))).sort();
+  }, [clubs]);
 
   // Filter clubs based on selected league or top tier clubs
-  const targetLeagueClubs = selectedLeagueFilter === 'all'
-    ? [...clubs].sort((a, b) => b.reputation - a.reputation).slice(0, 20)
-    : clubs.filter(c => c.league === selectedLeagueFilter);
+  const targetLeagueClubs = useMemo(() => {
+    return selectedLeagueFilter === 'all'
+      ? [...clubs].sort((a, b) => b.reputation - a.reputation).slice(0, 20)
+      : clubs.filter(c => c.league === selectedLeagueFilter);
+  }, [clubs, selectedLeagueFilter]);
 
   // Generate pair fixtures for active week (up to 10 matches for 20 teams)
-  const matches = [];
-  for (let i = 0; i < targetLeagueClubs.length - 1; i += 2) {
-    matches.push({
-      homeClub: targetLeagueClubs[i],
-      awayClub: targetLeagueClubs[i + 1]
-    });
-  }
+  const matches = useMemo(() => {
+    const list = [];
+    for (let i = 0; i < targetLeagueClubs.length - 1; i += 2) {
+      list.push({
+        homeClub: targetLeagueClubs[i],
+        awayClub: targetLeagueClubs[i + 1]
+      });
+    }
+    return list;
+  }, [targetLeagueClubs]);
 
-  const myClientsPlaying = players.filter(p => p.isMyClient && p.clubId !== 'free_agent');
+  const myClientsPlaying = useMemo(() => {
+    return players.filter(p => p.isMyClient && p.clubId && p.clubId !== 'free_agent' && p.clubId !== 'c_free');
+  }, [players]);
   const activeDirectives = agency.activeMatchDirectives || {};
 
   const handleSetDirective = (playerId: string, directive: MatchdayDirectiveType) => {

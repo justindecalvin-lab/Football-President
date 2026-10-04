@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Player, Club, AgencyState } from '../types';
 import { formatMoney } from '../utils/gameEngine';
 import { getCurrentTransferWindowId } from '../utils/transferEvaluationEngine';
@@ -49,24 +49,36 @@ export const ReleaseClauseWarRoom: React.FC<ReleaseClauseWarRoomProps> = ({
   const [selectedDestinationType, setSelectedDestinationType] = useState<'owned_club' | 'partner_brokerage'>('owned_club');
   const [selectedTargetClubId, setSelectedTargetClubId] = useState<string>('');
 
-  // Find all players worldwide with active release clauses
-  const playersWithClauses = players.filter(p => {
-    const clause = p.clauses?.releaseClause;
-    return clause && clause > 0;
-  });
+  // Find all players worldwide with active release clauses (memoized)
+  const playersWithClauses = useMemo(() => {
+    return players.filter(p => {
+      const clause = p.clauses?.releaseClause;
+      return clause && clause > 0;
+    });
+  }, [players]);
 
-  // Filtered radar
-  const filteredRadarPlayers = playersWithClauses.filter(p => {
-    const clause = p.clauses?.releaseClause || 0;
-    const matchesSearch = p.name.toLowerCase().includes(searchFilter.toLowerCase()) || p.clubName.toLowerCase().includes(searchFilter.toLowerCase());
-    const matchesPos = positionFilter === 'ALL' || p.position === positionFilter;
-    const matchesPrice = clause <= maxClauseFilter;
-    return matchesSearch && matchesPos && matchesPrice;
-  });
+  // Filtered radar (memoized with lowercased search)
+  const filteredRadarPlayers = useMemo(() => {
+    const q = searchFilter.toLowerCase().trim();
+    return playersWithClauses.filter(p => {
+      const clause = p.clauses?.releaseClause || 0;
+      const matchesSearch = !q || p.name.toLowerCase().includes(q) || (p.clubName && p.clubName.toLowerCase().includes(q));
+      const matchesPos = positionFilter === 'ALL' || p.position === positionFilter;
+      const matchesPrice = clause <= maxClauseFilter;
+      return matchesSearch && matchesPos && matchesPrice;
+    });
+  }, [playersWithClauses, searchFilter, positionFilter, maxClauseFilter]);
 
   // Owned club squad players for Anti-Poaching Poison Pill mode
-  const ownedClubs = clubs.filter(c => agency.clubShares?.some(s => s.clubId === c.id && s.sharePercent >= 50));
-  const ownedSquadPlayers = players.filter(p => ownedClubs.some(oc => oc.id === p.clubId));
+  const ownedClubs = useMemo(() => {
+    return clubs.filter(c => agency.clubShares?.some(s => s.clubId === c.id && s.sharePercent >= 50));
+  }, [clubs, agency.clubShares]);
+
+  const ownedSquadPlayers = useMemo(() => {
+    if (ownedClubs.length === 0) return [];
+    const ownedClubIdSet = new Set(ownedClubs.map(oc => oc.id));
+    return players.filter(p => ownedClubIdSet.has(p.clubId));
+  }, [players, ownedClubs]);
   
   // Acquiring partner clubs for brokerage advances (top clubs excluding selling club)
   const getPartnerClubs = (sellingClubId: string) => {

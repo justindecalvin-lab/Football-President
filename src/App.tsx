@@ -217,6 +217,9 @@ export default function App() {
 
   // Handle Starting a New Game Career
   const handleStartNewGame = useCallback((options: NewGameOptions) => {
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+    }
     const isOwner = options.role === 'club_owner';
     const isFA = options.role === 'fa_president';
 
@@ -641,6 +644,9 @@ export default function App() {
 
   // Handle Restructure / Load Save Slot
   const handleLoadState = useCallback((savedState: { agency: AgencyState; clubs: Club[]; players: Player[]; news: NewsItem[] }) => {
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+    }
     setAgency(savedState.agency);
     setClubs(savedState.clubs);
     setPlayers(savedState.players);
@@ -650,10 +656,17 @@ export default function App() {
     addToast('Career loaded successfully from save slot!', 'success');
   }, [addToast]);
 
-  // Number of unrested clients
-  const unrestCount = useMemo(() => {
-    return players.filter(p => p.isMyClient && p.unrest && p.unrest.status !== 'content').length;
+  // Memoized client list to prevent 10,000-item re-filters across App renders
+  const myClients = useMemo(() => {
+    return players.filter(p => p.isMyClient);
   }, [players]);
+
+  const myClientsCount = myClients.length;
+
+  // Number of unrested clients (evaluates ~10-30 clients instead of 10,000 players)
+  const unrestCount = useMemo(() => {
+    return myClients.filter(p => p.unrest && p.unrest.status !== 'content').length;
+  }, [myClients]);
 
   const isTransferWindow = useMemo(() => {
     return (agency.currentWeek >= 1 && agency.currentWeek <= 8) || (agency.currentWeek >= 20 && agency.currentWeek <= 24);
@@ -707,7 +720,7 @@ export default function App() {
         {/* Primary Sticky Header */}
         <Header
           agency={agency}
-          playersCount={players.filter(p => p.isMyClient).length}
+          playersCount={myClientsCount}
           onAdvanceWeek={handleAdvanceWeek}
           onFastForward4Weeks={handleFastForward4Weeks}
           activeTab={activeTab}

@@ -53,12 +53,17 @@ export const UniversalSearchModal: React.FC<UniversalSearchModalProps> = ({
       data: any;
     }> = [];
 
-    // Search Players
+    // Search Players with early-exit loop (stops after 10 matches instead of scanning all 10,000 players)
     if (filterCategory === 'all' || filterCategory === 'players') {
-      players
-        .filter(p => p.name.toLowerCase().includes(q) || p.clubName?.toLowerCase().includes(q) || p.position.toLowerCase().includes(q) || p.nationality?.toLowerCase().includes(q))
-        .slice(0, 10)
-        .forEach(p => {
+      let foundCount = 0;
+      for (let i = 0; i < players.length; i++) {
+        const p = players[i];
+        if (
+          p.name.toLowerCase().includes(q) || 
+          (p.clubName && p.clubName.toLowerCase().includes(q)) || 
+          p.position.toLowerCase().includes(q) || 
+          (p.nationality && p.nationality.toLowerCase().includes(q))
+        ) {
           results.push({
             id: `p_${p.id}`,
             category: 'players',
@@ -68,15 +73,22 @@ export const UniversalSearchModal: React.FC<UniversalSearchModalProps> = ({
             tagColor: p.isMyClient ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-blue-500/20 text-blue-300 border-blue-500/40',
             data: p
           });
-        });
+          foundCount++;
+          if (foundCount >= 10) break;
+        }
+      }
     }
 
-    // Search Clubs
+    // Search Clubs with early-exit loop
     if (filterCategory === 'all' || filterCategory === 'clubs') {
-      clubs
-        .filter(c => c.name.toLowerCase().includes(q) || c.league.toLowerCase().includes(q) || c.country?.toLowerCase().includes(q))
-        .slice(0, 8)
-        .forEach(c => {
+      let foundClubs = 0;
+      for (let i = 0; i < clubs.length; i++) {
+        const c = clubs[i];
+        if (
+          c.name.toLowerCase().includes(q) || 
+          c.league.toLowerCase().includes(q) || 
+          (c.country && c.country.toLowerCase().includes(q))
+        ) {
           results.push({
             id: `c_${c.id}`,
             category: 'clubs',
@@ -86,7 +98,10 @@ export const UniversalSearchModal: React.FC<UniversalSearchModalProps> = ({
             tagColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
             data: c
           });
-        });
+          foundClubs++;
+          if (foundClubs >= 8) break;
+        }
+      }
     }
 
     // Search Rival Agents

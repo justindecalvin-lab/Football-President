@@ -179,12 +179,49 @@ export function processWeeklyPlayerProgressionAndDegradation(
       }
     }
 
-    // Suspension tick down
-    if (player.isSuspended && player.suspensionMatchesRemaining && player.suspensionMatchesRemaining > 0) {
+    // Injury Rehabilitation & Medical Recovery Countdown
+    if (player.injury?.isInjured) {
+      const physioBonus = (agency?.headquartersUpgrades?.physioRecoveryClinic || 0) >= 2 || ((agency?.staff?.physioLevel || 0) >= 2) ? 2 : 1;
+      const prevWeeks = player.injury.weeks || 1;
+      const newWeeks = Math.max(0, prevWeeks - physioBonus);
+      player.injury.weeks = newWeeks;
+
+      if (newWeeks <= 0) {
+        player.injury.isInjured = false;
+        player.injury.weeks = 0;
+        player.condition = Math.max(75, player.condition || 80);
+
+        if (player.isMyClient) {
+          toastMessages.push(`🏥 Medical Clearance: ${player.name} has completed rehab and returned to full squad training!`);
+          newsItems.push({
+            id: `news_inj_cleared_${Date.now()}_${player.id}`,
+            week,
+            season,
+            headline: `🏥 INJURY RECOVERY: ${player.name} Medically Cleared for Match Selection`,
+            content: `Following physical therapy and fitness tests, ${player.name} (${player.position}) is back to full fitness at ${player.clubName}.`,
+            category: 'player_development',
+            urgency: 'normal',
+            read: false,
+            targetRole: 'agent',
+            actionTab: 'my_players',
+            relatedPlayerId: player.id
+          });
+        }
+      }
+    }
+
+    // Suspension tick down (protect newly issued suspensions from immediate wipe)
+    if (player.justSuspendedThisWeek) {
+      // Suspension was handed out in this matchweek; player sits out upcoming matches
+      player.justSuspendedThisWeek = false;
+    } else if (player.isSuspended && player.suspensionMatchesRemaining && player.suspensionMatchesRemaining > 0) {
       player.suspensionMatchesRemaining -= 1;
       if (player.suspensionMatchesRemaining <= 0) {
         player.isSuspended = false;
         player.suspensionMatchesRemaining = 0;
+        if (player.isMyClient) {
+          toastMessages.push(`⚖️ Suspension Served: ${player.name} has concluded their disciplinary ban and is eligible for selection.`);
+        }
       }
     }
 

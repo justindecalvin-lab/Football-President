@@ -389,20 +389,18 @@ export function pruneNews(news: NewsItem[]): NewsItem[] {
 /**
  * Automatically compacts and compresses complex payloads before saving.
  */
-function prepareDataForPersistence(key: string, data: any): { processedData: any; isCompressed: boolean } {
-  let target = data;
-
+function getCompactedPayload(key: string, data: any): any {
   if (key.includes('players') && Array.isArray(data)) {
-    target = compactPlayers(data);
+    return compactPlayers(data);
   } else if (key.includes('clubs') && Array.isArray(data)) {
-    target = compactClubs(data);
+    return compactClubs(data);
   } else if (key.includes('news') && Array.isArray(data)) {
-    target = pruneNews(data);
+    return pruneNews(data);
   } else if (key.includes('agency') && data && typeof data === 'object') {
-    target = pruneAgencyState(data);
+    return pruneAgencyState(data);
   } else if (data && typeof data === 'object' && ('players' in data || 'clubs' in data)) {
     // Full save slot
-    target = {
+    return {
       ...data,
       agency: data.agency ? pruneAgencyState(data.agency) : data.agency,
       news: data.news ? pruneNews(data.news) : data.news,
@@ -410,35 +408,24 @@ function prepareDataForPersistence(key: string, data: any): { processedData: any
       clubs: data.clubs ? compactClubs(data.clubs) : []
     };
   }
-
-  // Compress to string
-  try {
-    const rawJson = JSON.stringify(target);
-    // If payload is over 5KB, apply LZW compression
-    if (rawJson.length > 5000) {
-      const compressed = compressLZW(rawJson);
-      return { processedData: compressed, isCompressed: true };
-    }
-    return { processedData: target, isCompressed: false };
-  } catch (err) {
-    return { processedData: target, isCompressed: false };
-  }
+  return data;
 }
 
 /**
  * Save data asynchronously to IndexedDB with quota-safe LocalStorage fallback.
+ * Uses native Structured Clone in IndexedDB for 0ms CPU thread overhead (bypassing main-thread LZW compression).
  */
 export async function saveItemToStorage<T>(key: string, data: T): Promise<boolean> {
-  const { processedData, isCompressed } = prepareDataForPersistence(key, data);
+  const compacted = getCompactedPayload(key, data);
   let idbSuccess = false;
 
-  // 1. Save to IndexedDB (Virtually unlimited capacity)
+  // 1. Save to IndexedDB (Virtually unlimited capacity, native Structured Clone, asynchronous)
   try {
     const db = await getDB();
     await new Promise<void>((resolve, reject) => {
       const transaction = db.transaction(STORE_NAME, 'readwrite');
       const store = transaction.objectStore(STORE_NAME);
-      const req = store.put(processedData, key);
+      const req = store.put(compacted, key);
 
       req.onsuccess = () => resolve();
       req.onerror = () => reject(req.error);
@@ -448,46 +435,35 @@ export async function saveItemToStorage<T>(key: string, data: T): Promise<boolea
     console.warn('IndexedDB write notice, utilizing LocalStorage fallback:', err);
   }
 
-  // 2. Safe LocalStorage Mirror
+  // 2. Safe LocalStorage Mirror (Only for lightweight keys or fallback)
   try {
-    // Quota Safety Rule:
-    // If IndexedDB succeeded, DO NOT mirror multi-megabyte world players directly into LocalStorage!
-    // LocalStorage has a hard 5MB limit. Only mirror lightweight agency, settings, and flags,
-    // or mirror compressed data under 1MB.
-    if (key.includes('players') && !isCompressed && Array.isArray(processedData) && processedData.length > 100) {
-      // IndexedDB has it covered, skip raw 20MB dump to localStorage
+    // If IndexedDB succeeded, do not mirror raw 10,000 players into 5MB localStorage
+    if (key.includes('players') && Array.isArray(compacted) && compacted.length > 50) {
       if (idbSuccess) return true;
     }
 
-    const payloadToStore = typeof processedData === 'string' ? processedData : JSON.stringify(processedData);
+    let payloadToStore = typeof compacted === 'string' ? compacted : JSON.stringify(compacted);
 
-    // If payload is larger than 1.5MB, do not force it into LocalStorage if IDB already has it
-    if (payloadToStore.length > 1500000 && idbSuccess) {
+    // If writing to LocalStorage and payload is over 50KB, compress with LZW
+    if (payloadToStore.length > 50000) {
+      if (idbSuccess) {
+        // IndexedDB already safely persisted it, skip heavy LZW on main thread
+        return true;
+      }
+      payloadToStore = compressLZW(payloadToStore);
+    }
+
+    if (payloadToStore.length > 2000000 && idbSuccess) {
       return true;
     }
 
     localStorage.setItem(key, payloadToStore);
   } catch (lsErr) {
-    // LocalStorage quota hit - run vacuum
     cleanLocalStorageBloat();
-
-    if (idbSuccess) {
-      // IndexedDB already saved it successfully, so overall save is a complete SUCCESS!
-      return true;
-    }
-
-    // Try storing compressed version if not already
-    try {
-      const comp = compressLZW(JSON.stringify(processedData));
-      localStorage.setItem(key, comp);
-      return true;
-    } catch (retryErr) {
-      console.error('Storage quota exceeded on both IndexedDB and LocalStorage:', retryErr);
-      return false;
-    }
+    if (idbSuccess) return true;
   }
 
-  return true;
+  return idbSuccess;
 }
 
 /**

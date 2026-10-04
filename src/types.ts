@@ -207,6 +207,7 @@ export interface Player {
   redCards?: number; // Season red cards
   isSuspended?: boolean; // Card accumulation / disciplinary suspension
   suspensionMatchesRemaining?: number;
+  justSuspendedThisWeek?: boolean;
   tacticalSynergy?: number; // 0-100 role familiarity
   historicalSellOnEarned?: number;
   potentialCeiling?: number; // Initial theoretical peak potential

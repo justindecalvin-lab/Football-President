@@ -560,6 +560,48 @@ export function simulateAiTransferMarket(
       sellerAccepts = offerFee >= minAcceptable;
     }
 
+    // If target player is user's client, generate incoming transfer negotiation instead of auto-selling
+    if (targetPlayer.isMyClient && sellerAccepts) {
+      if (!targetPlayer.ongoingTransferNegotiation) {
+        const offeredWage = Math.max(
+          Math.round((targetPlayer.wage || 30000) * 1.3),
+          Math.round((buyer.wageBudget || 2000000) * 0.04)
+        );
+        targetPlayer.ongoingTransferNegotiation = {
+          id: `neg_${Date.now()}_${targetPlayer.id}`,
+          buyingClubId: buyer.id,
+          buyingClubName: buyer.name,
+          buyingClubDirector: buyer.managerName || 'Sporting Director',
+          buyingClubRole: 'Director of Football',
+          offeredFee: offerFee,
+          offeredWage,
+          offeredCommission: targetPlayer.agentCommission || 12,
+          offeredYears: 4,
+          weeksRemaining: 3,
+          startWeek: week,
+          startSeason: season,
+          status: 'pending_user_decision',
+          directorAvatar: '💼'
+        };
+
+        newsItems.push({
+          id: `news_bid_client_${Date.now()}_${targetPlayer.id}`,
+          week,
+          season,
+          headline: `🚨 INCOMING TRANSFER BID: ${buyer.name} Table €${formatMoney(offerFee)} for ${targetPlayer.name}!`,
+          content: `${buyer.name} have submitted an official bid of €${formatMoney(offerFee)} for your client ${targetPlayer.name} with weekly wages of €${formatMoney(offeredWage)}. Review and negotiate in My Clients.`,
+          category: 'transfer',
+          urgency: 'breaking',
+          read: false,
+          targetRole: 'agent',
+          actionTab: 'my_players',
+          actionLabel: 'Review Offer',
+          relatedPlayerId: targetPlayer.id
+        });
+      }
+      continue;
+    }
+
     if (sellerAccepts) {
       // Execute the transfer!
       transfersExecutedCount++;

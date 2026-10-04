@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Player, Club, AgencyState } from '../types';
 import { formatMoney, calculateSeveranceBuyoutCost, recordFinancialTransaction, generatePlayerBio } from '../utils/gameEngine';
 import { safeFetchAi, generateClientPlayerBackstory, generateClientScoutReport } from '../utils/aiFallback';
@@ -1379,6 +1379,40 @@ export const MyPlayersView: React.FC<MyPlayersViewProps> = ({
             </div>
             );
           })}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="bg-slate-900 border border-slate-800 p-3 rounded-2xl flex items-center justify-between text-xs text-slate-400 shadow-md">
+              <span className="font-medium text-slate-400">
+                Showing {((page - 1) * ITEMS_PER_PAGE) + 1}–{Math.min(page * ITEMS_PER_PAGE, displayedPlayers.length)} of {displayedPlayers.length} athletes
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setPage(p => Math.max(1, p - 1));
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  disabled={page === 1}
+                  className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold transition cursor-pointer"
+                >
+                  Previous Page
+                </button>
+                <span className="font-bold text-white px-2">
+                  {page} / {totalPages}
+                </span>
+                <button
+                  onClick={() => {
+                    setPage(p => Math.min(totalPages, p + 1));
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  disabled={page === totalPages}
+                  className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold transition cursor-pointer"
+                >
+                  Next Page
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         /* Tactical Pitch View */
